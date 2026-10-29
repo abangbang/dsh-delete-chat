@@ -1,4 +1,4 @@
-# dsh-session-delete
+# dsh-delete-chat
 
 **Real session deletion for DeepSeek Harness.** DSH ships archive-only session management:
 archiving hides a conversation from every list, but the log stays on disk forever. This plugin
@@ -8,7 +8,7 @@ projection cache — behind a confirmation dialog that reports what it actually 
 English | [中文](README.zh-CN.md)
 
 <p align="center">
-  <img src="docs/banner.svg" alt="dsh-session-delete" width="720">
+  <img src="docs/banner.svg" alt="dsh-delete-chat" width="720">
 </p>
 
 ---
@@ -36,7 +36,7 @@ grows — this plugin is the scissors.
 | **Confirmation** | Title, disk usage, directory count; then a field-by-field report |
 | **Actually deletes** | Archive (stops running work) → recursive directory removal → atomic `workspace.json` rewrite (with backup) → projection-cache purge |
 | **Both layouts** | Per-project `<root>/<project>/session-<uuid>/` and flat `<root>/session-<uuid>/` |
-| **CLI fallback** | `dsh-session-delete --list / --preview / --yes`, usable without the GUI |
+| **CLI fallback** | `dsh-delete-chat --list / --preview / --yes`, usable without the GUI |
 | **Self-hosted index** | Ships a format-1 market index — add it as an index source for a private market |
 
 ## Install
@@ -46,7 +46,7 @@ grows — this plugin is the scissors.
 Host → **Settings → Plugins → Discover → Index sources**, add:
 
 ```
-https://cdn.jsdelivr.net/gh/YOUR_GITHUB_USER/dsh-session-delete@main/market/index.json
+https://cdn.jsdelivr.net/gh/YOUR_GITHUB_USER/dsh-delete-chat@main/market/index.json
 ```
 
 (Icon paths in the index are relative; jsDelivr serves the whole repo as a static site, so they
@@ -55,7 +55,7 @@ resolve.)
 ### Command line
 
 ```bash
-dsh plugin --profile <your-profile> add https://github.com/YOUR_GITHUB_USER/dsh-session-delete/archive/refs/heads/main.tar.gz
+dsh plugin --profile <your-profile> add https://github.com/YOUR_GITHUB_USER/dsh-delete-chat/archive/refs/heads/main.tar.gz
 ```
 
 On the official desktop app the profile belongs to the app's own plugin manager — install through
@@ -64,16 +64,16 @@ On the official desktop app the profile belongs to the app's own plugin manager 
 ### Manual mount
 
 ```bash
-git clone https://github.com/YOUR_GITHUB_USER/dsh-session-delete.git \
-  ~/.dsh/profiles/desktop/node_modules/dsh-session-delete
+git clone https://github.com/YOUR_GITHUB_USER/dsh-delete-chat.git \
+  ~/.dsh/profiles/desktop/node_modules/dsh-delete-chat
 ```
 
 Then append to the profile's `cordis.patch.yml`:
 
 ```yaml
 - insert:
-    - id: session-delete
-      name: 'dsh-session-delete'
+    - id: delete-chat
+      name: 'dsh-delete-chat'
 ```
 
 **Restart DSH afterwards.** The plugin tree is composed at boot, and the client bundle is composed
@@ -100,10 +100,10 @@ Proj. cache   1 entry cleared
 ### CLI
 
 ```bash
-dsh-session-delete --list                    # every session: size, archived, pinned, live
-dsh-session-delete --preview session-<uuid>  # read-only
-dsh-session-delete --yes session-<uuid>      # delete
-dsh-session-delete --home D:\other\.dsh --list
+dsh-delete-chat --list                    # every session: size, archived, pinned, live
+dsh-delete-chat --preview session-<uuid>  # read-only
+dsh-delete-chat --yes session-<uuid>      # delete
+dsh-delete-chat --home D:\other\.dsh --list
 ```
 
 Without `--yes` it prints the preview and exits `1`.
@@ -124,7 +124,7 @@ removed, and the report says so.
 
 ### API
 
-`POST /session-delete/api/{list,preview,delete}`, fenced by the host's own
+`POST /delete-chat/api/{list,preview,delete}`, fenced by the host's own
 `connection.requestRejection`. `sessionId` must start with `session-` and contain only
 `[0-9A-Za-z._-]`: it is validated before it ever reaches `join()`/`rm()`, so `../`, drive letters
 and separators cannot become path segments.
@@ -143,7 +143,7 @@ and separators cannot become path segments.
 
 ```bash
 npm test                 # 30 tests: host logic / HTTP envelope / client bundle contract
-npm run pack             # release/dsh-session-delete-<version>.tgz
+npm run pack             # release/dsh-delete-chat-<version>.tgz
 npm run market-index     # regenerate market/index.json from HEAD
 npm run rename-owner --  <github-user> [display-name]
 ```

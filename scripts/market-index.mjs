@@ -37,7 +37,7 @@ const pkg = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'))
 
 const commit = flag(argv, '--commit') ?? execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim()
 const useNpm = argv.includes('--source') && flag(argv, '--source') === 'npm'
-const repositoryUrl = 'https://github.com/YOUR_GITHUB_USER/dsh-session-delete'
+const repositoryUrl = 'https://github.com/YOUR_GITHUB_USER/dsh-delete-chat'
 
 if (!/^[0-9a-f]{40}$/.test(commit)) throw new Error(`commit 必须是 40 位小写十六进制，拿到的是 ${commit}`)
 
@@ -69,7 +69,7 @@ const index = {
     {
       name: pkg.name,
       title: {
-        en: 'Session Delete',
+        en: 'Delete Chat',
         zh: '会话删除',
       },
       description: {
@@ -78,7 +78,7 @@ const index = {
       },
       icon: '../icon.svg',
       author: pkg.author,
-      homepage: 'https://github.com/YOUR_GITHUB_USER/dsh-session-delete#readme',
+      homepage: 'https://github.com/YOUR_GITHUB_USER/dsh-delete-chat#readme',
       repository: {
         url: `${repositoryUrl}.git`,
       },

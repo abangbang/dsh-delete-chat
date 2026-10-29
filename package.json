@@ -1,5 +1,5 @@
 {
-  "name": "dsh-session-delete",
+  "name": "dsh-delete-chat",
   "version": "0.1.0",
   "description": "真正删除 DSH 会话：归档 + 删目录 + 清记账。会话行「⋯」菜单里的危险操作，带确认与逐项结果。Real session deletion for DeepSeek Harness.",
   "type": "module",
@@ -15,12 +15,12 @@
     "./package.json": "./package.json"
   },
   "bin": {
-    "dsh-session-delete": "./bin/session-delete.mjs"
+    "dsh-delete-chat": "./bin/delete-chat.mjs"
   },
   "files": [
     "lib/index.js",
     "lib/client.js",
-    "bin/session-delete.mjs",
+    "bin/delete-chat.mjs",
     "cordis.patch.yml",
     "icon.svg",
     "README.md",
@@ -46,11 +46,11 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/YOUR_GITHUB_USER/dsh-session-delete.git"
+    "url": "git+https://github.com/YOUR_GITHUB_USER/dsh-delete-chat.git"
   },
-  "homepage": "https://github.com/YOUR_GITHUB_USER/dsh-session-delete#readme",
+  "homepage": "https://github.com/YOUR_GITHUB_USER/dsh-delete-chat#readme",
   "bugs": {
-    "url": "https://github.com/YOUR_GITHUB_USER/dsh-session-delete/issues"
+    "url": "https://github.com/YOUR_GITHUB_USER/dsh-delete-chat/issues"
   },
   "author": "YOUR_GITHUB_USER",
   "license": "MIT",
@@ -72,9 +72,9 @@
     },
     "install": {
       "preferred": "tarball",
-      "tarball": "https://github.com/YOUR_GITHUB_USER/dsh-session-delete/archive/refs/heads/main.tar.gz",
-      "zip": "https://github.com/YOUR_GITHUB_USER/dsh-session-delete/archive/refs/heads/main.zip",
-      "git": "https://github.com/YOUR_GITHUB_USER/dsh-session-delete.git"
+      "tarball": "https://github.com/YOUR_GITHUB_USER/dsh-delete-chat/archive/refs/heads/main.tar.gz",
+      "zip": "https://github.com/YOUR_GITHUB_USER/dsh-delete-chat/archive/refs/heads/main.zip",
+      "git": "https://github.com/YOUR_GITHUB_USER/dsh-delete-chat.git"
     }
   },
   "peerDependencies": {

@@ -46,7 +46,7 @@ function contextFor(root) {
 }
 
 before(async () => {
-  home = await mkdtemp(join(tmpdir(), 'dsh-session-delete-'))
+  home = await mkdtemp(join(tmpdir(), 'dsh-delete-chat-'))
   const sessions = join(home, 'sessions')
   await mkdir(join(sessions, PROJECT, SESSION), { recursive: true })
   await mkdir(join(sessions, PROJECT, OTHER), { recursive: true })

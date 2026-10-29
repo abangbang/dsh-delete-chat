@@ -3,7 +3,7 @@
  *
  *   node scripts/pack.mjs
  *
- * 输出到 `release/dsh-session-delete-<version>.tgz`。GitHub Release 附件、
+ * 输出到 `release/dsh-delete-chat-<version>.tgz`。GitHub Release 附件、
  * `dsh plugin add <url>`、`npm install <file>` 都能直接用这个包。
  *
  * 只打包 `package.json` 的 `files` 里声明的路径，外加 package.json 自身，

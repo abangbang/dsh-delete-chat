@@ -54,7 +54,7 @@ function response() {
 }
 
 before(async () => {
-  home = await mkdtemp(join(tmpdir(), 'dsh-session-delete-http-'))
+  home = await mkdtemp(join(tmpdir(), 'dsh-delete-chat-http-'))
   const sessions = join(home, 'sessions')
   await mkdir(join(sessions, PROJECT, SESSION), { recursive: true })
   await writeFile(join(sessions, PROJECT, SESSION, 'session.v4.jsonl.zstd'), Buffer.alloc(512))
@@ -90,7 +90,7 @@ after(async () => {
 describe('mount', () => {
   it('registers one prefix route', () => {
     assert.equal(route.kind, 'prefix')
-    assert.equal(route.path, '/session-delete/api')
+    assert.equal(route.path, '/delete-chat/api')
     assert.equal(typeof route.handler, 'function')
   })
 })
@@ -98,7 +98,7 @@ describe('mount', () => {
 describe('envelope', () => {
   it('rejects GET', async () => {
     const { res, read } = response()
-    await route.handler(request('/session-delete/api/list', undefined, 'GET'), res)
+    await route.handler(request('/delete-chat/api/list', undefined, 'GET'), res)
     const out = read()
     assert.equal(out.status, 405)
     assert.equal(out.json.ok, false)
@@ -107,14 +107,14 @@ describe('envelope', () => {
   it('answers unknown methods with 404 and no prototype fallthrough', async () => {
     for (const method of ['constructor', 'toString', 'hasOwnProperty', 'nope']) {
       const { res, read } = response()
-      await route.handler(request(`/session-delete/api/${method}`, {}), res)
+      await route.handler(request(`/delete-chat/api/${method}`, {}), res)
       assert.equal(read().status, 404, method)
     }
   })
 
   it('rejects a traversal-shaped id before touching the filesystem', async () => {
     const { res, read } = response()
-    await route.handler(request('/session-delete/api/delete', { sessionId: '../../etc/passwd' }), res)
+    await route.handler(request('/delete-chat/api/delete', { sessionId: '../../etc/passwd' }), res)
     const out = read()
     assert.equal(out.status, 400)
     assert.match(out.json.error.message, /must look like/)
@@ -123,7 +123,7 @@ describe('envelope', () => {
 
   it('rejects a non-object body', async () => {
     const { res, read } = response()
-    await route.handler(request('/session-delete/api/delete', [1, 2, 3]), res)
+    await route.handler(request('/delete-chat/api/delete', [1, 2, 3]), res)
     assert.equal(read().status, 400)
   })
 })
@@ -131,7 +131,7 @@ describe('envelope', () => {
 describe('operations', () => {
   it('previews', async () => {
     const { res, read } = response()
-    await route.handler(request('/session-delete/api/preview', { sessionId: SESSION }), res)
+    await route.handler(request('/delete-chat/api/preview', { sessionId: SESSION }), res)
     const out = read()
     assert.equal(out.status, 200)
     assert.equal(out.json.ok, true)
@@ -141,7 +141,7 @@ describe('operations', () => {
 
   it('lists', async () => {
     const { res, read } = response()
-    await route.handler(request('/session-delete/api/list', {}), res)
+    await route.handler(request('/delete-chat/api/list', {}), res)
     const out = read()
     assert.equal(out.status, 200)
     assert.equal(out.json.value.rows.length, 1)
@@ -149,7 +149,7 @@ describe('operations', () => {
 
   it('deletes and reports', async () => {
     const { res, read } = response()
-    await route.handler(request('/session-delete/api/delete', { sessionId: SESSION }), res)
+    await route.handler(request('/delete-chat/api/delete', { sessionId: SESSION }), res)
     const out = read()
     assert.equal(out.status, 200)
     assert.equal(out.json.value.deleted, true)

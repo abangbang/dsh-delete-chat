@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 /**
- * dsh-session-delete — command line fallback.
+ * dsh-delete-chat — command line fallback.
  *
  * Same core as the plugin, without a running host: useful when the GUI half is
  * not mounted yet, when you want a scripted cleanup, or when DSH is closed and
  * you would rather not start it.
  *
- *   node bin/session-delete.mjs --list
- *   node bin/session-delete.mjs --preview session-<uuid>
- *   node bin/session-delete.mjs --yes session-<uuid>
+ *   node bin/delete-chat.mjs --list
+ *   node bin/delete-chat.mjs --preview session-<uuid>
+ *   node bin/delete-chat.mjs --yes session-<uuid>
  *
  * `--home` (or DSH_HOME) points at a DSH home other than ~/.dsh.
  *

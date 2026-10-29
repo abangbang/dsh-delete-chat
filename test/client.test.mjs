@@ -56,11 +56,11 @@ before(async () => {
 
 describe('bundle', () => {
   it('registers under the package name', () => {
-    assert.equal(spec.id, 'dsh-session-delete')
+    assert.equal(spec.id, 'dsh-delete-chat')
   })
 
   it('exports a mountable face', () => {
-    assert.equal(exports.name, 'dsh-session-delete')
+    assert.equal(exports.name, 'dsh-delete-chat')
     assert.equal(typeof exports.apply, 'function')
     assert.deepEqual(exports.inject, ['slots'])
   })
@@ -95,11 +95,11 @@ describe('slots', () => {
 
     const [menu, dialog] = registrations
     assert.equal(menu.entry.name, 'sidebar.workspaces.session.menu.item')
-    assert.equal(menu.entry.id, 'session-delete:menu-item')
+    assert.equal(menu.entry.id, 'delete-chat:menu-item')
     assert.equal(typeof menu.component, 'function')
 
     assert.equal(dialog.entry.name, 'shell.overlay')
-    assert.equal(dialog.entry.id, 'session-delete:dialog')
+    assert.equal(dialog.entry.id, 'delete-chat:dialog')
     assert.equal(typeof dialog.component, 'function')
   })
 
@@ -177,7 +177,7 @@ describe('danger styling', () => {
 
     assert.equal(element.args[0], PRIMITIVES.MenuItemButton, 'uses the design system row')
     const props = element.args[1]
-    assert.equal(props.className, 'dsh-session-delete__danger-row')
+    assert.equal(props.className, 'dsh-delete-chat__danger-row')
     assert.equal(props.style.color, DANGER)
 
     assert.ok(props.icon !== undefined, 'the row must carry an icon')

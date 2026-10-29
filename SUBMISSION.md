@@ -22,8 +22,8 @@ npm run rename-owner --  <你的GitHub用户名> "<显示名>"
 ```bash
 git init -b main
 git add -A
-git commit -m "feat: dsh-session-delete 0.1.0"
-git remote add origin https://github.com/<user>/dsh-session-delete.git
+git commit -m "feat: dsh-delete-chat 0.1.0"
+git remote add origin https://github.com/<user>/dsh-delete-chat.git
 git push -u origin main
 ```
 
@@ -46,7 +46,7 @@ GitHub 会直接渲染。
 索引 `market/index.json` 是宿主认可的 **format 1** 格式，用 jsDelivr 直接读 GitHub 就行：
 
 ```
-https://cdn.jsdelivr.net/gh/<user>/dsh-session-delete@main/market/index.json
+https://cdn.jsdelivr.net/gh/<user>/dsh-delete-chat@main/market/index.json
 ```
 
 在宿主里 **设置 → 插件 → 发现 → 索引源** 添加这一行，插件立刻出现在发现页，带图标、
@@ -78,14 +78,14 @@ https://cdn.jsdelivr.net/gh/<user>/dsh-session-delete@main/market/index.json
 PR 描述模板：
 
 ```markdown
-### 新增插件：dsh-session-delete
+### 新增插件：dsh-delete-chat
 
-- 仓库：https://github.com/<user>/dsh-session-delete
+- 仓库：https://github.com/<user>/dsh-delete-chat
 - 用途：给 DSH 补上真正的会话删除（归档 → 删目录 → 摘工作区记账 → 清投影缓存），
   会话行「⋯」菜单里的破坏性操作，带确认与逐项结果报告。
 - 插件类型：host + client（`dsh.bundle.patch` + `dsh.client`）
 - 目标宿主：dshTarget 0.2.1-rc.2（engines.dsh >=0.2.0-0）
-- 安装：`dsh plugin add https://github.com/<user>/dsh-session-delete/archive/refs/heads/main.tar.gz`
+- 安装：`dsh plugin add https://github.com/<user>/dsh-delete-chat/archive/refs/heads/main.tar.gz`
 - 许可：MIT
 - 是否含可执行二进制：否，纯 ESM
 ```
@@ -94,8 +94,8 @@ PR 描述模板：
 
 ## 4. 通道 C：发布到 npm
 
-包名 `dsh-session-delete` 目前未被占用（提交前用 `npm view dsh-session-delete version` 确认；
-被占用就改成 `@<user>/dsh-session-delete`，同时改 `name` 与索引）。
+包名 `dsh-delete-chat` 目前未被占用（提交前用 `npm view dsh-delete-chat version` 确认；
+被占用就改成 `@<user>/dsh-delete-chat`，同时改 `name` 与索引）。
 
 ```bash
 npm login
@@ -116,7 +116,7 @@ npm 源的好处是更新检测走得通（市场按 npm 版本比对），tarba
 ## 5. 发 GitHub Release（可选，但推荐）
 
 ```bash
-npm run pack           # 产出 release/dsh-session-delete-0.1.0.tgz（自带 sha256）
+npm run pack           # 产出 release/dsh-delete-chat-0.1.0.tgz（自带 sha256）
 ```
 
 打 tag 推上去，`.github/workflows/release.yml` 会自动打包并把 `.tgz` 挂到 Release：

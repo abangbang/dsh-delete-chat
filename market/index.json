@@ -35,9 +35,9 @@
   },
   "plugins": [
     {
-      "name": "dsh-session-delete",
+      "name": "dsh-delete-chat",
       "title": {
-        "en": "Session Delete",
+        "en": "Delete Chat",
         "zh": "会话删除"
       },
       "description": {
@@ -46,9 +46,9 @@
       },
       "icon": "../icon.svg",
       "author": "YOUR_GITHUB_USER",
-      "homepage": "https://github.com/YOUR_GITHUB_USER/dsh-session-delete#readme",
+      "homepage": "https://github.com/YOUR_GITHUB_USER/dsh-delete-chat#readme",
       "repository": {
-        "url": "https://github.com/YOUR_GITHUB_USER/dsh-session-delete.git"
+        "url": "https://github.com/YOUR_GITHUB_USER/dsh-delete-chat.git"
       },
       "metadata": {
         "category": "sessions",
@@ -69,11 +69,11 @@
       "versions": [
         {
           "version": "0.1.0",
-          "publishTimestamp": 1793249112,
+          "publishTimestamp": 1793251030,
           "source": {
             "type": "git",
-            "url": "https://github.com/YOUR_GITHUB_USER/dsh-session-delete.git",
-            "commit": "58da624df43020984092c19ee34fbd8d1c66e4d3"
+            "url": "https://github.com/YOUR_GITHUB_USER/dsh-delete-chat.git",
+            "commit": "b7d9bc699cfd05acf212e230531b2bf2cafe64ab"
           },
           "engines": {
             "dsh": ">=0.2.0-0"
