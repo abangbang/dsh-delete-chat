@@ -330,3 +330,121 @@ describe('i18n', () => {
     assert.ok(!label.startsWith('deleteChat.'), 'a missing service must not leak the raw key')
   })
 })
+
+/** The status row must state what actually happened, not a blanket success. */
+describe('report status', () => {
+  /**
+   * Expand function components into their rendered output. The fake renderer
+   * records `{ type, args }` without invoking components, so a report rendered by
+   * `ReportView` would otherwise stay an opaque function reference.
+   * @param node - fake element, array or scalar.
+   * @returns the same tree with components replaced by what they return.
+   */
+  function flatten(node) {
+    if (node === null || node === undefined || typeof node !== 'object') return node
+    if (Array.isArray(node)) return node.map(flatten)
+    if (node.type !== 'element') return node
+    const [type, props, ...children] = node.args
+    if (typeof type === 'function') return flatten(type({ ...props, children }))
+    return { type, props, children: children.map(flatten) }
+  }
+
+  /**
+   * Drive one full delete flow against a stubbed host, then serialise the outcome.
+   * @param report - the host report the stub returns.
+   * @param locale - active language id.
+   * @returns the rendered dialog as JSON.
+   */
+  async function renderOutcome(report, locale = 'zh') {
+    const originalFetch = globalThis.fetch
+    globalThis.fetch = async () => ({ ok: true, status: 200, json: async () => ({ ok: true, value: report }) })
+    try {
+      const { menu, dialog } = mountInstance({ locale })
+      const row = menu({ sessionId: 'session-1', displayTitle: 'demo' })
+      row.args[1].onSelect()
+      await new Promise((resolve) => setTimeout(resolve, 0))
+
+      /** First rendered button carrying the solid danger fill is the confirm one. */
+      const findConfirm = (node) => {
+        const tree = flatten(node)
+        if (tree === null || tree === undefined || typeof tree !== 'object') return undefined
+        if (tree.type === 'button' && tree.props?.style?.background === '#c93b3b') return tree
+        for (const child of tree.children ?? []) {
+          const found = findConfirm(child)
+          if (found !== undefined) return found
+        }
+        return undefined
+      }
+
+      const confirm = findConfirm(dialog())
+      assert.ok(confirm !== undefined, 'the confirm button must render')
+      confirm.props.onClick()
+      await new Promise((resolve) => setTimeout(resolve, 0))
+      return JSON.stringify(flatten(dialog()))
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  }
+
+  const CASES = [
+    {
+      name: 'a completed deletion',
+      report: {
+        deleted: true,
+        archived: 'ok',
+        removedDirectories: ['/tmp/a'],
+        freedBytes: 4096,
+        workspaceAccounting: { workspaces: 1, archived: 0, pinned: 0 },
+        projectionCacheRemoved: 1,
+        failures: [],
+      },
+      zh: '已删除',
+      en: 'Deleted',
+    },
+    {
+      name: 'a partial deletion',
+      report: {
+        deleted: false,
+        archived: 'failed: busy',
+        removedDirectories: ['/tmp/a'],
+        freedBytes: 4096,
+        workspaceAccounting: null,
+        projectionCacheRemoved: 0,
+        failures: [{ path: '/tmp/b', error: 'EPERM' }],
+      },
+      zh: '部分完成',
+      en: 'partially deleted',
+    },
+    {
+      name: 'nothing on disk',
+      report: {
+        deleted: false,
+        archived: 'skipped',
+        removedDirectories: [],
+        freedBytes: 0,
+        workspaceAccounting: null,
+        projectionCacheRemoved: 0,
+        failures: [],
+      },
+      zh: '未找到可删除内容',
+      en: 'nothing to delete',
+    },
+  ]
+
+  for (const testCase of CASES) {
+    it(`reports ${testCase.name} in zh`, async () => {
+      const rendered = await renderOutcome(testCase.report, 'zh')
+      assert.ok(rendered.includes(testCase.zh), `expected "${testCase.zh}" in the report`)
+    })
+    it(`reports ${testCase.name} in en`, async () => {
+      const rendered = await renderOutcome(testCase.report, 'en')
+      assert.ok(rendered.includes(testCase.en), `expected "${testCase.en}" in the report`)
+    })
+  }
+
+  it('names the failing path and reason when part of the run failed', async () => {
+    const rendered = await renderOutcome(CASES[1].report, 'zh')
+    assert.ok(rendered.includes('/tmp/b'), 'the failing path must be named')
+    assert.ok(rendered.includes('EPERM'), 'the failure reason must be named')
+  })
+})
