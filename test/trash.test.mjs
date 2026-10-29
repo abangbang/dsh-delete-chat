@@ -177,6 +177,19 @@ describe('listing', () => {
     assert.ok(listing.rows.every((row) => row.bytes === 512))
   })
 
+  it('carries the trash path, the size and both timestamps', async () => {
+    const logPath = join(sessions, PROJECT, SESSION, 'session.v4.jsonl.zstd')
+    const before = await stat(logPath)
+    await trashSession(contextFor(sessions), { sessionId: SESSION, displayTitle: 'demo' })
+
+    const listing = await listTrash(contextFor(sessions))
+    const row = listing.rows[0]
+    assert.equal(row.path, join(home, 'session-trash', PROJECT, SESSION), 'the row names where it lives now')
+    assert.equal(row.bytes, 512)
+    assert.equal(row.lastActiveAt, new Date(before.mtimeMs).toISOString(), 'rename keeps the log mtime, so it survives the move')
+    assert.match(String(row.deletedAt), /^\d{4}-\d{2}-\d{2}T/)
+  })
+
   it('trusts the directory tree: unknown dirs appear, vanished rows are reported', async () => {
     await trashSession(contextFor(sessions), { sessionId: SESSION, displayTitle: 'known' })
     const stranger = 'session-cccccccc-1111-4222-8333-444444444444'

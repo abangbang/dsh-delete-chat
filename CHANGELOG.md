@@ -3,6 +3,20 @@
 本文件记录所有值得注意的改动。格式参照 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [SemVer](https://semver.org/lang/zh-CN/)。
 
+## [0.4.0] — 2026-10-29
+
+### Added
+
+- **每个动作都走二次确认弹窗**：恢复 / 永久删除 / 清空回收站各自弹一个确认框，写明**条数**、
+  **将释放的空间**、以及「无法恢复」；点确认才动磁盘（原来的「按钮上膛」交互取消）。
+- **每行显示详情**：大小、文件位置（回收站里的绝对路径）、最后对话时间、删除时间，
+  时间统一 `YYYY-MM-DD HH:mm:ss`。最后对话时间取自会话日志文件的 mtime——`rename` 会保留它，
+  所以移进回收站后仍然准确。
+
+### Changed
+
+- 宿主 `listTrash` 的每行新增 `path` 与 `lastActiveAt`；`trashSession` 在移动前记录 `lastActiveAt`。
+
 ## [0.3.0] — 2026-10-29
 
 ### Changed

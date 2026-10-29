@@ -179,11 +179,34 @@ function button(node, label) {
   return find(node, (element) => element.type === 'button' && textOf(element).includes(label))
 }
 
+/**
+ * Find a button whose rendered text is exactly `label`. The toolbar's select-all
+ * button flips its own label between 全选 and 取消全选, so a substring match for
+ * 取消 would hit it before the dialog's cancel.
+ * @param node - flattened tree.
+ * @param label - exact button text.
+ * @returns the node, or undefined.
+ */
+function exactButton(node, label) {
+  return find(node, (element) => element.type === 'button' && textOf(element).trim() === label)
+}
+
 /** Serialised tree, for "must (not) contain" assertions. */
 const dump = (node) => JSON.stringify(flatten(node))
 
 /** Let queued promises and the zero-delay timer settle. */
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0))
+
+/**
+ * The exact `YYYY-MM-DD HH:mm:ss` the UI renders, in the machine's own zone.
+ * @param iso - ISO timestamp.
+ * @returns the rendered stamp.
+ */
+function stamp(iso) {
+  const date = new Date(iso)
+  const pad = (value) => String(value).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
+}
 
 /** Host stubs used by most cases. */
 const ROUTES = {
@@ -191,8 +214,24 @@ const ROUTES = {
   trashList: {
     root: '/home/.dsh/session-trash',
     rows: [
-      { sessionId: 'session-a', displayTitle: 'alpha 会话', bytes: 2048, project: 'p', deletedAt: '2026-10-29T01:02:03.000Z' },
-      { sessionId: 'session-b', displayTitle: 'beta 会话', bytes: 1024, project: 'p', deletedAt: '2026-10-28T01:02:03.000Z' },
+      {
+        sessionId: 'session-a',
+        displayTitle: 'alpha 会话',
+        bytes: 2048,
+        project: 'p',
+        path: '/home/.dsh/session-trash/p/session-a',
+        lastActiveAt: '2026-10-27T09:08:07.000Z',
+        deletedAt: '2026-10-29T01:02:03.000Z',
+      },
+      {
+        sessionId: 'session-b',
+        displayTitle: 'beta 会话',
+        bytes: 1024,
+        project: 'p',
+        path: '/home/.dsh/session-trash/p/session-b',
+        lastActiveAt: '2026-10-26T09:08:07.000Z',
+        deletedAt: '2026-10-28T01:02:03.000Z',
+      },
     ],
   },
   restore: { restored: [{ sessionId: 'session-a' }], failures: [] },
@@ -418,6 +457,24 @@ describe('trash panel page', () => {
     }
   })
 
+  it('shows size, location, last activity and deletion time for every row', async () => {
+    const driver = await openPage()
+    try {
+      const tree = driver.render()
+      const text = textOf(tree)
+      assert.ok(text.includes('大小'), 'the size label must render')
+      assert.ok(text.includes('2.0 KB'), 'the size value must render')
+      assert.ok(text.includes('文件位置'), 'the location label must render')
+      assert.ok(text.includes('/home/.dsh/session-trash/p/session-a'), 'the full path must render')
+      assert.ok(text.includes('最后对话'), 'the last-activity label must render')
+      assert.ok(text.includes(stamp('2026-10-27T09:08:07.000Z')), 'the last activity must be a full timestamp')
+      assert.ok(text.includes('删除时间'), 'the deletion-time label must render')
+      assert.ok(text.includes(stamp('2026-10-29T01:02:03.000Z')), 'the deletion time must be a full timestamp')
+    } finally {
+      driver.restore()
+    }
+  })
+
   it('filters by title, path or project', async () => {
     const driver = await openPage()
     try {
@@ -434,7 +491,7 @@ describe('trash panel page', () => {
     }
   })
 
-  it('purges a multi-selection only after a second click', async () => {
+  it('purges a multi-selection through a confirmation modal', async () => {
     const driver = await openPage()
     try {
       button(driver.render(), '全选').props.onClick()
@@ -443,16 +500,38 @@ describe('trash panel page', () => {
 
       button(driver.render(), '永久删除').props.onClick()
       await tick()
-      assert.ok(dump(driver.render()).includes('确认永久删除 2 项'), 'the first click must only arm')
-      assert.ok(!driver.calls.some((call) => call.target.endsWith('/purge')), 'nothing is deleted yet')
 
-      button(driver.render(), '确认永久删除 2 项').props.onClick()
+      const modal = dump(driver.render())
+      assert.ok(modal.includes('永久删除 2 项？'), 'the modal asks the question')
+      assert.ok(modal.includes('无法恢复'), 'and states the consequence')
+      assert.ok(modal.includes('4') || modal.includes('KB'), 'and names the bytes')
+      assert.ok(!driver.calls.some((call) => call.target.endsWith('/purge')), 'opening the modal deletes nothing')
+
+      button(driver.render(), '确认永久删除').props.onClick()
       await tick()
 
       const purge = driver.calls.find((call) => call.target.endsWith('/purge'))
-      assert.ok(purge !== undefined, 'the second click issues the purge')
+      assert.ok(purge !== undefined, 'the modal button issues the purge')
       assert.deepEqual([...purge.body.sessionIds].sort(), ['session-a', 'session-b'])
       assert.ok(dump(driver.render()).includes('已永久删除 2 项'))
+    } finally {
+      driver.restore()
+    }
+  })
+
+  it('cancels the modal without touching the host', async () => {
+    const driver = await openPage()
+    try {
+      button(driver.render(), '全选').props.onClick()
+      await tick()
+      button(driver.render(), '永久删除').props.onClick()
+      await tick()
+
+      const before = driver.calls.length
+      exactButton(driver.render(), '取消').props.onClick()
+      await tick()
+      assert.ok(!dump(driver.render()).includes('永久删除 2 项？'), 'the modal closes')
+      assert.equal(driver.calls.length, before, 'cancel talks to nobody')
     } finally {
       driver.restore()
     }
@@ -466,6 +545,10 @@ describe('trash panel page', () => {
       await tick()
 
       button(driver.render(), '恢复').props.onClick()
+      await tick()
+      assert.ok(dump(driver.render()).includes('恢复 1 项？'), 'restore asks first too')
+
+      button(driver.render(), '确认恢复').props.onClick()
       await tick()
 
       const restore = driver.calls.find((call) => call.target.endsWith('/restore'))
@@ -482,10 +565,10 @@ describe('trash panel page', () => {
     try {
       button(driver.render(), '清空回收站').props.onClick()
       await tick()
-      assert.ok(dump(driver.render()).includes('确认清空 2 项'))
+      assert.ok(dump(driver.render()).includes('清空回收站？'), 'emptying asks first')
       assert.ok(!driver.calls.some((call) => call.target.endsWith('/empty')))
 
-      button(driver.render(), '确认清空 2 项').props.onClick()
+      button(driver.render(), '确认清空').props.onClick()
       await tick()
       assert.ok(driver.calls.some((call) => call.target.endsWith('/empty')))
       assert.ok(dump(driver.render()).includes('回收站已清空'))
@@ -509,7 +592,7 @@ describe('trash panel page', () => {
         await tick()
         button(driver.render(), '永久删除').props.onClick()
         await tick()
-        button(driver.render(), '确认永久删除 2 项').props.onClick()
+        button(driver.render(), '确认永久删除').props.onClick()
         await tick()
         assert.ok(dump(driver.render()).includes('disk on fire'))
       } finally {

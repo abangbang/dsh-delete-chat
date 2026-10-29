@@ -34,7 +34,8 @@ grows — this plugin is the scissors.
 |---|---|
 | **Soft delete** | Session row "⋯" → Delete chat moves the directory into `~/.dsh/session-trash` — a rename on the same volume, never a copy |
 | **Trash as a global panel** | The sidebar's panel list gets a Trash row (a red dot while it holds anything); selecting it opens a full page with filter, multi-select, restore, permanent delete and empty |
-| **Hard to do by accident** | The permanent verbs live only inside the trash and re-label themselves before firing |
+| **Confirmation modals** | Restore, delete and empty each open a modal that names the count and the bytes before anything touches the disk |
+| **Row details** | Size, trash path, last activity and deletion time on every row |
 | **Localized** | Wording follows the host language (zh / en) live — rows, dialog and panel all re-render on a switch |
 | **Both layouts** | Per-project `<root>/<project>/session-<uuid>/` and flat `<root>/session-<uuid>/` |
 | **CLI** | `--trash` / `--trash-list` / `--restore` / `--purge --yes` / `--empty --yes`, usable without the GUI |
@@ -121,8 +122,19 @@ deletion time:
 - **filter** by title, path or project;
 - **select** one row or all of them — the footer counts the selection;
 - **Restore** moves the directories back, re-accounts them and unarchives them;
-- **Delete permanently** and **Empty trash** arm on the first click (the button becomes
-  `Confirm permanent deletion of N`) and only fire on the second.
+- **Restore**, **Delete permanently** and **Empty trash** each open a confirmation modal that names
+  the count, the bytes it will free and whether the action is reversible; only its confirm button
+  touches the disk.
+
+Every row shows its own details:
+
+```
+alpha conversation
+  Size           2.0 KB
+  Location       ~/.dsh/session-trash/--proj--/session-…
+  Last activity  2026-10-27 17:08:07   ← the log's mtime; rename keeps it
+  Deleted        2026-10-29 09:02:03
+```
 
 ### CLI
 
