@@ -378,26 +378,37 @@ describe('session menu', () => {
 })
 
 describe('panel list entry', () => {
-  it('renders the count on the glyph when the trash holds something', async () => {
+  /** The count element: the only child of the glyph that is not an icon wrapper. */
+  const countNode = (tree) => find(tree, (element) => typeof element.props?.style?.color === 'string'
+    && element.props.style.color.startsWith('rgb(255')
+    && /^\d+\+?$/.test(textOf(element).trim()))
+
+  it('renders the count beside the glyph when the trash holds something', async () => {
     const driver = mount()
     try {
       await tick()
       const tree = glyphTree(driver)
-      const badge = find(tree, (element) => element.props?.style?.background === '#c93b3b')
-      assert.ok(badge !== undefined, 'a non-empty trash carries a badge')
-      assert.equal(textOf(badge), '2', 'the badge shows how many conversations the trash holds')
+      const count = countNode(tree)
+      assert.ok(count !== undefined, 'a non-empty trash carries a count')
+      assert.equal(textOf(count), '2', 'the count says how many conversations the trash holds')
+      assert.equal(
+        tree.props?.style?.columnGap,
+        '4px',
+        'the count sits beside the icon, not on top of it',
+      )
       assert.ok(driver.calls.some((call) => call.target.endsWith('/trashList')), 'the count is primed at mount')
     } finally {
       driver.restore()
     }
   })
 
-  it('renders no badge when the trash is empty', async () => {
+  it('renders no count when the trash is empty', async () => {
     const driver = mount({ routes: { ...ROUTES, trashList: { root: '/t', rows: [] } } })
     try {
       await tick()
-      const badge = find(glyphTree(driver), (element) => element.props?.style?.background === '#c93b3b')
-      assert.equal(badge, undefined)
+      const tree = glyphTree(driver)
+      assert.equal(countNode(tree), undefined)
+      assert.equal(tree.props?.style?.columnGap, undefined, 'no gap without a count')
     } finally {
       driver.restore()
     }
@@ -408,8 +419,7 @@ describe('panel list entry', () => {
     const driver = mount({ routes: { ...ROUTES, trashList: { root: '/t', rows } } })
     try {
       await tick()
-      const badge = find(glyphTree(driver), (element) => element.props?.style?.background === '#c93b3b')
-      assert.equal(textOf(badge), '99+')
+      assert.equal(textOf(countNode(glyphTree(driver))), '99+')
     } finally {
       driver.restore()
     }
