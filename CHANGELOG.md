@@ -3,6 +3,13 @@
 本文件记录所有值得注意的改动。格式参照 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [SemVer](https://semver.org/lang/zh-CN/)。
 
+## [0.4.5] — 2026-10-29
+
+### Changed
+
+- 侧栏回收站的数量去掉自己的颜色：继承这一行的文字色（`color: inherit`、透明度 0.72、字重 500），
+  看起来是标签的一部分，而不是一个带警示色的徽标。琥珀色现在只用于恢复按钮。
+
 ## [0.4.4] — 2026-10-29
 
 ### Fixed

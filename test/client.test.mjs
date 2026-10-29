@@ -397,7 +397,7 @@ describe('panel list entry', () => {
       assert.equal(text, '回收站2', 'name then count, left to right')
       assert.ok(text.indexOf('回收站') < text.indexOf('2'), 'the count follows the name')
       assert.equal(textOf(countNode(tree)), '2', 'the count says how many conversations the trash holds')
-      assert.equal(countNode(tree).props.style.color, 'rgb(226, 179, 68)', 'amber, not danger red')
+      assert.equal(countNode(tree).props.style.color, 'inherit', 'the count has no colour of its own')
       assert.ok(driver.calls.some((call) => call.target.endsWith('/trashList')), 'the count is primed at mount')
     } finally {
       driver.restore()

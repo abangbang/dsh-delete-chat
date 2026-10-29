@@ -115,7 +115,7 @@ Trash         ~/.dsh/session-trash/--proj--/session-…
 Nothing is lost: this is a rename, and it stays reversible until you say otherwise.
 
 **Trash** — the sidebar's panel list (the nav above the workspaces, `aria-label="全局面板"`) gains a
-**Trash** row, drawn as icon · name · count — the count in amber (`rgb(226,179,68)`, not danger red), hidden at zero, `99+` above that, and it moves the moment a delete lands. Selecting it opens the panel as a page — the same
+**Trash** row, drawn as icon · name · count — the count carries no colour of its own (it follows the row text), is hidden at zero, shows `99+` above that, and moves the moment a delete lands. Selecting it opens the panel as a page — the same
 kind of page the Plugins manager uses — listing every trashed conversation with its size, project and
 deletion time:
 
