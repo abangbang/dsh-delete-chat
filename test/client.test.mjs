@@ -383,20 +383,27 @@ describe('panel list entry', () => {
     && element.props.style.color.startsWith('rgb(255')
     && /^\d+\+?$/.test(textOf(element).trim()))
 
-  it('renders the count beside the glyph when the trash holds something', async () => {
+  it('draws icon, name and count in that order', async () => {
     const driver = mount()
     try {
       await tick()
       const tree = glyphTree(driver)
-      const count = countNode(tree)
-      assert.ok(count !== undefined, 'a non-empty trash carries a count')
-      assert.equal(textOf(count), '2', 'the count says how many conversations the trash holds')
-      assert.equal(
-        tree.props?.style?.columnGap,
-        '4px',
-        'the count sits beside the icon, not on top of it',
-      )
+      const text = textOf(tree)
+      assert.equal(text, '回收站2', 'name then count, left to right')
+      assert.ok(text.indexOf('回收站') < text.indexOf('2'), 'the count follows the name')
+      assert.equal(textOf(countNode(tree)), '2', 'the count says how many conversations the trash holds')
       assert.ok(driver.calls.some((call) => call.target.endsWith('/trashList')), 'the count is primed at mount')
+    } finally {
+      driver.restore()
+    }
+  })
+
+  it('keeps the rail compact: no name, just icon and count', async () => {
+    const driver = mount()
+    try {
+      await tick()
+      const tree = flatten(driver.glyph({ size: 18, active: false }))
+      assert.equal(textOf(tree), '2', 'the 56px rail has no room for the name')
     } finally {
       driver.restore()
     }
@@ -406,9 +413,8 @@ describe('panel list entry', () => {
     const driver = mount({ routes: { ...ROUTES, trashList: { root: '/t', rows: [] } } })
     try {
       await tick()
-      const tree = glyphTree(driver)
-      assert.equal(countNode(tree), undefined)
-      assert.equal(tree.props?.style?.columnGap, undefined, 'no gap without a count')
+      assert.equal(countNode(glyphTree(driver)), undefined)
+      assert.equal(textOf(glyphTree(driver)), '回收站', 'the name stays, the count does not')
     } finally {
       driver.restore()
     }

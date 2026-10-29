@@ -179,6 +179,24 @@ Restore reverses steps 2–3 and asks the live registry to re-project the row (`
 when it can. Permanent deletion — only ever reachable from the trash — unlinks the directory,
 forgets the manifest row and clears the projection cache.
 
+### Why the row draws itself
+
+The shell renders a panel-list row as `[glyph][title]`: the glyph is whatever occupies
+`sidebar.panellist`, and the title is projected from the `label` passed at registration. Anything
+*after* the name is therefore not yours — you cannot append a count from the glyph.
+
+So this entry draws **icon, name and count** inside the glyph and hides the shell's duplicate title
+with one row-scoped rule:
+
+```css
+button[aria-label="回收站"] > span[aria-hidden="true"] + span,
+button[aria-label="Trash"]   > span[aria-hidden="true"] + span { display: none !important }
+```
+
+The selector anchors only on things this plugin owns — the exact `aria-label` it registers, and the
+`aria-hidden` glyph span the shell wraps around it — so no other row is touched. The `aria-label`
+itself stays, which keeps the screen-reader name and the rail tooltip intact.
+
 ### API
 
 `POST /delete-chat/api/{trash,trashList,restore,purge,empty}` plus `{list,preview,delete}`, where
