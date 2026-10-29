@@ -41,6 +41,103 @@ function fakeRequire(id) {
   throw new Error(`client test: unexpected module "${id}"`)
 }
 
+/** A primitives surface that has the real build's shape. */
+const PRIMITIVES = {
+  MenuItemButton: function MenuItemButton() {},
+  IconTrashOutlineRegular: function IconTrashOutlineRegular() {},
+}
+
+/**
+ * A stand-in for the host locale service (`ctx.get('locale')`): register / bind /
+ * subscribe / getSnapshot / setLocale, resolving through the same `[active, 'en']`
+ * fallback chain the real runtime uses.
+ * @param initial - starting language id.
+ * @returns the fake service.
+ */
+function createLocaleService(initial = 'zh') {
+  const dictionaries = new Map()
+  const listeners = new Set()
+  let active = initial
+  let revision = 0
+
+  const publish = () => {
+    revision += 1
+    for (const listener of [...listeners]) listener()
+  }
+
+  return {
+    dictionaries,
+    register(namespace, byLocale) {
+      dictionaries.set(namespace, byLocale)
+      publish()
+      return () => {
+        dictionaries.delete(namespace)
+        publish()
+      }
+    },
+    bind(namespace) {
+      return (key, params) => {
+        let template
+        for (const locale of [active, 'en']) {
+          const value = dictionaries.get(namespace)?.[locale]?.[key]
+          if (value !== undefined) {
+            template = value
+            break
+          }
+        }
+        if (template === undefined) return key
+        if (params === undefined) return template
+        return template.replace(/\{(\w+)\}/g, (match, name) => (name in params ? String(params[name]) : match))
+      }
+    },
+    subscribe(listener) {
+      listeners.add(listener)
+      return () => listeners.delete(listener)
+    },
+    getSnapshot() {
+      return { active, revision, locales: [{ id: 'zh' }, { id: 'en' }] }
+    },
+    setLocale(next) {
+      active = next
+      publish()
+    },
+  }
+}
+
+/**
+ * Mount one module instance against a fake context.
+ * @param options - `{ primitives, locale, withService }`; `withService: false`
+ *   omits the locale service, which is how a stripped host looks.
+ * @returns the two registered components plus the fake locale service.
+ */
+function mountInstance(options = {}) {
+  const primitives = options.primitives ?? PRIMITIVES
+  const locale = createLocaleService(options.locale)
+  const withService = options.withService !== false
+  const instance = spec.factory((id) => {
+    if (id === 'react') return fakeReact
+    if (id === '@deepseek-ai/dsh-client-ui-primitives') return primitives
+    throw new Error(`client test: unexpected module "${id}"`)
+  })
+  const registrations = []
+  instance.apply({
+    effect: (fn) => fn(),
+    get: (name) => (withService && name === 'locale' ? locale : undefined),
+    slots: {
+      inject: (_name, factory) => factory(),
+      register: (entry, component) => {
+        registrations.push({ entry, component })
+        return () => {}
+      },
+    },
+  })
+  return {
+    menu: registrations.find((row) => row.entry.name === 'sidebar.workspaces.session.menu.item').component,
+    dialog: registrations.find((row) => row.entry.name === 'shell.overlay').component,
+    locale,
+  }
+}
+
 before(async () => {
   globalThis.window = {
     __ModuleLoader__: {
@@ -124,37 +221,13 @@ describe('slots', () => {
 describe('danger styling', () => {
   const DANGER = 'rgb(255, 123, 114)'
 
-  /** A primitives surface that has the real build's shape. */
-  const PRIMITIVES = {
-    MenuItemButton: function MenuItemButton() {},
-    IconTrashOutlineRegular: function IconTrashOutlineRegular() {},
-  }
-
   /**
    * Mount a fresh module instance whose `require` answers the primitives.
-   * @returns the two registered components plus the menu row's props.
+   * @param locale - active language id for the fake locale service.
+   * @returns the two registered components plus the fake service.
    */
-  function mount() {
-    const instance = spec.factory((id) => {
-      if (id === 'react') return fakeReact
-      if (id === '@deepseek-ai/dsh-client-ui-primitives') return PRIMITIVES
-      throw new Error(`client test: unexpected module "${id}"`)
-    })
-    const registrations = []
-    instance.apply({
-      effect: (fn) => fn(),
-      slots: {
-        inject: (_name, factory) => factory(),
-        register: (entry, component) => {
-          registrations.push({ entry, component })
-          return () => {}
-        },
-      },
-    })
-    return {
-      menu: registrations.find((row) => row.entry.name === 'sidebar.workspaces.session.menu.item').component,
-      dialog: registrations.find((row) => row.entry.name === 'shell.overlay').component,
-    }
+  function mount(locale = 'zh') {
+    return mountInstance({ primitives: PRIMITIVES, locale })
   }
 
   /**
@@ -210,5 +283,50 @@ describe('danger styling', () => {
     } finally {
       globalThis.fetch = originalFetch
     }
+  })
+})
+
+/** A language switch must reach the row, the dialog and the report. */
+describe('i18n', () => {
+  it('registers one namespace with matching zh/en key sets', () => {
+    const { locale } = mountInstance({ locale: 'zh' })
+    const byLocale = locale.dictionaries.get('deleteChat')
+    assert.ok(byLocale !== undefined, 'the dictionaries must be registered under the plugin namespace')
+    assert.deepEqual(Object.keys(byLocale.zh).sort(), Object.keys(byLocale.en).sort(), 'key sets must match')
+    assert.equal(byLocale.zh.menu, '删除会话')
+    assert.equal(byLocale.en.menu, 'Delete chat')
+    assert.equal(byLocale.en.confirm, 'Delete permanently')
+  })
+
+  it('follows the active language on the row and the open dialog', () => {
+    const { menu, dialog, locale } = mountInstance({ locale: 'zh' })
+
+    const zhRow = menu({ sessionId: 'session-1', displayTitle: 'demo' })
+    assert.equal(zhRow.args[2].args[2], '删除会话')
+
+    locale.setLocale('en')
+    const enRow = menu({ sessionId: 'session-1', displayTitle: 'demo' })
+    assert.equal(enRow.args[2].args[2], 'Delete chat', 'the row must re-read the active language')
+
+    const originalFetch = globalThis.fetch
+    globalThis.fetch = () => Promise.reject(new Error('offline'))
+    try {
+      enRow.args[1].onSelect()
+      const rendered = JSON.stringify(dialog())
+      assert.ok(rendered.includes('Delete permanently'), 'the confirm button must be English')
+      assert.ok(rendered.includes('This conversation leaves every list'), 'the body must be English')
+      assert.ok(!rendered.includes('永久删除'), 'no Chinese must survive the switch')
+      assert.ok(!rendered.includes('该会话将从列表中移除'), 'no Chinese body must survive either')
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+
+  it('falls back to a non-empty label when the host exposes no locale service', () => {
+    const { menu } = mountInstance({ withService: false })
+    const row = menu({ sessionId: 'session-1', displayTitle: 'demo' })
+    const label = row.args[2].args[2]
+    assert.ok(typeof label === 'string' && label.length > 0, 'a label must render without the service')
+    assert.ok(!label.startsWith('deleteChat.'), 'a missing service must not leak the raw key')
   })
 })

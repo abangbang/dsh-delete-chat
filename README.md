@@ -33,6 +33,7 @@ grows — this plugin is the scissors.
 | | |
 |---|---|
 | **Row menu** | Session row "⋯" → Delete session, trash glyph, danger red, red-tinted hover |
+| **Localized** | Wording follows the host language (zh / en) live — the row and an already-open dialog both re-render on a switch |
 | **Confirmation** | Title, disk usage, directory count; then a field-by-field report |
 | **Actually deletes** | Archive (stops running work) → recursive directory removal → atomic `workspace.json` rewrite (with backup) → projection-cache purge |
 | **Both layouts** | Per-project `<root>/<project>/session-<uuid>/` and flat `<root>/session-<uuid>/` |
