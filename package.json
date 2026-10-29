@@ -1,0 +1,91 @@
+{
+  "name": "dsh-session-delete",
+  "version": "0.1.0",
+  "description": "真正删除 DSH 会话：归档 + 删目录 + 清记账。会话行「⋯」菜单里的危险操作，带确认与逐项结果。Real session deletion for DeepSeek Harness.",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": {
+      "default": "./lib/index.js"
+    },
+    "./client": {
+      "default": "./lib/client.js"
+    },
+    "./icon": "./icon.svg",
+    "./package.json": "./package.json"
+  },
+  "bin": {
+    "dsh-session-delete": "./bin/session-delete.mjs"
+  },
+  "files": [
+    "lib/index.js",
+    "lib/client.js",
+    "bin/session-delete.mjs",
+    "cordis.patch.yml",
+    "icon.svg",
+    "README.md",
+    "README.zh-CN.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node --test test/host.test.mjs test/http.test.mjs test/client.test.mjs",
+    "pack": "node scripts/pack.mjs",
+    "market-index": "node scripts/market-index.mjs",
+    "rename-owner": "node scripts/rename-owner.mjs"
+  },
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "session",
+    "session-management",
+    "delete",
+    "archive",
+    "cleanup"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/YOUR_GITHUB_USER/dsh-session-delete.git"
+  },
+  "homepage": "https://github.com/YOUR_GITHUB_USER/dsh-session-delete#readme",
+  "bugs": {
+    "url": "https://github.com/YOUR_GITHUB_USER/dsh-session-delete/issues"
+  },
+  "author": "YOUR_GITHUB_USER",
+  "license": "MIT",
+  "icon": "./icon.svg",
+  "engines": {
+    "node": ">=20"
+  },
+  "dshTarget": "0.2.1-rc.2",
+  "dsh": {
+    "manifestVersion": 1,
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-slots"
+      ],
+      "platform": "web"
+    },
+    "install": {
+      "preferred": "tarball",
+      "tarball": "https://github.com/YOUR_GITHUB_USER/dsh-session-delete/archive/refs/heads/main.tar.gz",
+      "zip": "https://github.com/YOUR_GITHUB_USER/dsh-session-delete/archive/refs/heads/main.zip",
+      "git": "https://github.com/YOUR_GITHUB_USER/dsh-session-delete.git"
+    }
+  },
+  "peerDependencies": {
+    "react": "^18.2.0"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 320" width="1200" height="320" role="img" aria-label="dsh-session-delete">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#17171b" />
+      <stop offset="1" stop-color="#0e0e11" />
+    </linearGradient>
+    <linearGradient id="danger" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ff7b72" />
+      <stop offset="1" stop-color="#c93b3b" />
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="320" fill="url(#bg)" />
+  <rect x="0" y="0" width="1200" height="3" fill="url(#danger)" opacity="0.85" />
+
+  <g transform="translate(72, 96)" stroke="#ff7b72" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 22h64" />
+    <path d="M22 22V14a7 7 0 0 1 7-7h14a7 7 0 0 1 7 7v8" />
+    <path d="M12 22l4 50a9 9 0 0 0 9 8h26a9 9 0 0 0 9-8l4-50" />
+    <path d="M32 38v30" />
+    <path d="M48 38v30" />
+  </g>
+
+  <text x="196" y="132" font-family="ui-sans-serif, -apple-system, 'Segoe UI', 'Microsoft YaHei', sans-serif" font-size="58" font-weight="700" fill="#f2f2f4" letter-spacing="-0.5">dsh-session-delete</text>
+  <text x="198" y="182" font-family="ui-sans-serif, -apple-system, 'Segoe UI', 'Microsoft YaHei', sans-serif" font-size="26" fill="#9a9aa4">真正删除 DSH 会话 · archive → remove → prune → purge</text>
+
+  <g font-family="ui-monospace, 'SF Mono', Consolas, monospace" font-size="20" fill="#6f6f7a">
+    <text x="200" y="246">POST /session-delete/api/delete</text>
+  </g>
+
+  <g transform="translate(200, 268)">
+    <rect width="196" height="34" rx="17" fill="rgba(255,123,114,0.14)" stroke="rgba(255,123,114,0.5)" />
+    <text x="18" y="23" font-family="ui-sans-serif, -apple-system, 'Segoe UI', 'Microsoft YaHei', sans-serif" font-size="16" fill="#ff9d95">destructive · 破坏性</text>
+  </g>
+</svg>

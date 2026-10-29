@@ -1,0 +1,9 @@
+# dsh-session-delete bundle patch
+#
+# Mounts the plugin row. The profile loader merges this layer after the bundle
+# stack, so installing the package is enough — no hand edit of the profile's
+# own cordis.patch.yml is required when the package is added to
+# `dsh.profile.bundles`.
+- insert:
+    - id: session-delete
+      name: 'dsh-session-delete'

@@ -1,0 +1,38 @@
+name: release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Test
+        run: npm test
+
+      - name: Validate the market index
+        run: node scripts/check-market-index.mjs
+
+      - name: Pack
+        id: pack
+        run: |
+          node scripts/pack.mjs | tee pack.log
+          echo "tarball=$(ls release/*.tgz | head -n1)" >> "$GITHUB_OUTPUT"
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.pack.outputs.tarball }}
+          body_path: CHANGELOG.md
+          generate_release_notes: true
