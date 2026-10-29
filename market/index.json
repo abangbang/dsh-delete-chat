@@ -69,11 +69,11 @@
       "versions": [
         {
           "version": "0.4.6",
-          "publishTimestamp": 1793260039,
+          "publishTimestamp": 1793260365,
           "source": {
             "type": "git",
             "url": "https://github.com/abangbang/dsh-delete-chat.git",
-            "commit": "17582e884412e2dbdc23f3cd1d80ab9daf37475c"
+            "commit": "fc656e631cd722f07ee4c5330c5da496519931fc"
           },
           "engines": {
             "dsh": ">=0.2.0-0"
