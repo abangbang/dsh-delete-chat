@@ -3,6 +3,14 @@
 本文件记录所有值得注意的改动。格式参照 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [SemVer](https://semver.org/lang/zh-CN/)。
 
+## [0.4.6] — 2026-10-29
+
+### Changed
+
+- 删除确认框的结果只留「状态」和「占用空间」两行：「归档」与「回收站位置」移除——它们在回收站
+  那一页里都能看到，不必在一次性提示里重复。宿主接口的返回值不变（`archived`、`path` 仍在，
+  CLI 与脚本照旧可用）。
+
 ## [0.4.5] — 2026-10-29
 
 ### Changed

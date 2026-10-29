@@ -106,10 +106,8 @@ at boot too and served with `immutable` cache headers — a page refresh returns
 work stops, and the directory moves into the trash:
 
 ```
-Status        moved to trash
-Archive       archived, running work stopped
-Size          274.4 KB
-Trash         ~/.dsh/session-trash/--proj--/session-…
+Status   moved to trash
+Size     274.4 KB
 ```
 
 Nothing is lost: this is a rename, and it stays reversible until you say otherwise.

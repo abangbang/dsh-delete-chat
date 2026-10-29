@@ -98,9 +98,7 @@ git clone https://github.com/YOUR_GITHUB_USER/dsh-delete-chat.git \
 
 ```
 状态      已移入回收站
-归档      已归档并停止运行中的工作
 占用空间   274.4 KB
-回收站位置  ~/.dsh/session-trash/--proj--/session-…
 ```
 
 什么都不会丢：这是一次 rename，在你动手之前一直可逆。

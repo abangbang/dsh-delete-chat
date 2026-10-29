@@ -459,8 +459,11 @@ describe('soft delete dialog', () => {
       assert.ok(!driver.calls.some((call) => call.target.endsWith('/delete')), 'nothing permanent yet')
 
       overlays = flatten(driver.overrides())
-      assert.ok(dump(overlays).includes('已移入回收站'))
-      assert.ok(dump(overlays).includes('/home/.dsh/session-trash/p/session-a'), 'the report names the trash path')
+      const report = textOf(overlays)
+      assert.ok(report.includes('已移入回收站'), 'the outcome states what happened')
+      assert.ok(report.includes('2.0 KB'), 'and how much space moved with it')
+      assert.ok(!report.includes('归档'), 'the archive detail belongs to the trash page, not here')
+      assert.ok(!report.includes('回收站位置'), 'the trash path is visible in the trash page')
     } finally {
       driver.restore()
     }
