@@ -73,8 +73,8 @@ const index = {
         zh: '会话删除',
       },
       description: {
-        en: 'Real session deletion: the row menu gains a destructive action that archives, removes the session directory, prunes workspace accounting and clears the projection cache.',
-        zh: '真正删除会话：会话行「⋯」菜单里多一条危险操作，归档 + 删目录 + 摘工作区记账 + 清投影缓存，并逐项报告结果。',
+        en: 'Deleting a conversation moves it to a trash you can browse: soft delete from the row menu, restore or permanently delete from the sidebar footer panel, with per-item results.',
+        zh: '删除会话先进回收站：会话行「⋯」软删除，侧栏底部的回收站面板里筛选、恢复或永久删除，逐项报告结果。',
       },
       icon: '../icon.svg',
       author: pkg.author,

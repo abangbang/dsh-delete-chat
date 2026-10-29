@@ -242,11 +242,13 @@ function mount(options = {}) {
 
   const overrides = registrations.find((row) => row.entry.name === 'shell.overlay')?.component
   const menu = registrations.find((row) => row.entry.name === 'sidebar.workspaces.session.menu.item')?.component
+  const footer = registrations.find((row) => row.entry.name === 'sidebar.footer.action')?.component
 
   return {
     locale,
     calls,
     menu,
+    footer,
     overrides,
     registrations,
     render: () => flatten(overrides()),
@@ -256,9 +258,22 @@ function mount(options = {}) {
   }
 }
 
-/** The two rows this plugin puts in a session menu. */
-function menuRows(driver) {
-  return flatten(driver.menu({ sessionId: 'session-a', displayTitle: 'demo', cwd: '/p' })).children
+/** The single row this plugin puts in a session menu. */
+function menuRow(driver) {
+  return flatten(driver.menu({ sessionId: 'session-a', displayTitle: 'demo', cwd: '/p' }))
+}
+
+/** The trash button rendered into the sidebar footer seat. */
+function footerTree(driver) {
+  return flatten(driver.footer())
+}
+
+/** Open the trash panel through the sidebar footer button. */
+async function clickFooterTrash(driver) {
+  const target = find(footerTree(driver), (element) => element.type === 'button')
+  if (target === undefined) throw new Error('the footer seat must render a button')
+  target.props.onClick()
+  await tick()
 }
 
 before(async () => {
@@ -289,10 +304,12 @@ describe('slots', () => {
     try {
       assert.deepEqual(driver.registrations.map((row) => row.entry.name), [
         'sidebar.workspaces.session.menu.item',
+        'sidebar.footer.action',
         'shell.overlay',
       ])
       assert.equal(driver.registrations[0].entry.id, 'delete-chat:menu-item')
-      assert.equal(driver.registrations[1].entry.id, 'delete-chat:overlays')
+      assert.equal(driver.registrations[1].entry.id, 'delete-chat:footer')
+      assert.equal(driver.registrations[2].entry.id, 'delete-chat:overlays')
     } finally {
       driver.restore()
     }
@@ -309,19 +326,53 @@ describe('slots', () => {
 })
 
 describe('session menu', () => {
-  it('offers a danger delete row and a trash row', () => {
+  it('offers the danger delete row and nothing else', () => {
     const driver = mount()
     try {
-      const rows = menuRows(driver).filter((child) => child !== null)
-      assert.equal(rows.length, 2)
+      const row = menuRow(driver)
+      assert.ok(textOf(row).includes('删除会话'))
+      assert.equal(row.props.className, 'dsh-delete-chat__danger-row')
+      assert.equal(row.props.style.color, 'rgb(255, 123, 114)')
+      assert.ok(row.props.icon !== undefined, 'the delete row carries a glyph')
+      assert.ok(!textOf(row).includes('回收站'), 'the trash belongs in the sidebar footer now')
+    } finally {
+      driver.restore()
+    }
+  })
+})
 
-      assert.ok(textOf(rows[0]).includes('删除会话'))
-      assert.equal(rows[0].props.className, 'dsh-delete-chat__danger-row')
-      assert.equal(rows[0].props.style.color, 'rgb(255, 123, 114)')
-      assert.ok(rows[0].props.icon !== undefined, 'the delete row carries a glyph')
+describe('sidebar footer', () => {
+  it('renders the trash entry with a badge counting what it holds', async () => {
+    const driver = mount()
+    try {
+      await tick()
+      const target = find(footerTree(driver), (element) => element.type === 'button')
+      assert.ok(target !== undefined, 'the footer seat must render a button')
+      assert.ok(textOf(target).includes('回收站'))
+      assert.ok(textOf(target).includes('2'), 'the badge counts the two trashed sessions')
+      assert.ok(driver.calls.some((call) => call.target.endsWith('/trashList')), 'the badge is primed at mount')
+    } finally {
+      driver.restore()
+    }
+  })
 
-      assert.ok(textOf(rows[1]).includes('回收站'))
-      assert.equal(rows[1].props.className, undefined, 'the trash row is not a danger row')
+  it('hides the badge when the trash is empty', async () => {
+    const driver = mount({ routes: { ...ROUTES, trashList: { root: '/t', rows: [] } } })
+    try {
+      await tick()
+      const target = find(footerTree(driver), (element) => element.type === 'button')
+      assert.equal(textOf(target).trim(), '回收站')
+    } finally {
+      driver.restore()
+    }
+  })
+
+  it('opens the panel from the footer', async () => {
+    const driver = mount()
+    try {
+      await tick()
+      await clickFooterTrash(driver)
+      assert.ok(textOf(driver.render()).includes('alpha 会话'))
     } finally {
       driver.restore()
     }
@@ -332,7 +383,7 @@ describe('soft delete dialog', () => {
   it('says it moves the conversation to the trash, and calls the trash route', async () => {
     const driver = mount()
     try {
-      menuRows(driver)[0].props.onSelect()
+      menuRow(driver).props.onSelect()
       await tick()
 
       let tree = driver.render()
@@ -366,8 +417,8 @@ describe('trash panel', () => {
    */
   async function openPanel(options = {}) {
     const driver = mount(options)
-    menuRows(driver)[1].props.onSelect()
     await tick()
+    await clickFooterTrash(driver)
     return driver
   }
 
@@ -495,7 +546,7 @@ describe('i18n', () => {
       assert.ok(byLocale !== undefined)
       assert.deepEqual(Object.keys(byLocale.zh).sort(), Object.keys(byLocale.en).sort())
       assert.equal(byLocale.zh.menu, '删除会话')
-      assert.equal(byLocale.en.menuTrash, 'Trash')
+      assert.equal(byLocale.en.footerTrash, 'Trash')
     } finally {
       driver.restore()
     }
@@ -504,15 +555,14 @@ describe('i18n', () => {
   it('follows the active language on the rows and the panel', async () => {
     const driver = mount({ locale: 'zh' })
     try {
-      assert.ok(textOf(menuRows(driver)[0]).includes('删除会话'))
+      assert.ok(textOf(menuRow(driver)).includes('删除会话'))
+      assert.ok(textOf(find(footerTree(driver), (element) => element.type === 'button')).includes('回收站'))
 
       driver.locale.setLocale('en')
-      const rows = menuRows(driver)
-      assert.ok(textOf(rows[0]).includes('Delete chat'))
-      assert.ok(textOf(rows[1]).includes('Trash'))
+      assert.ok(textOf(menuRow(driver)).includes('Delete chat'))
+      assert.ok(textOf(find(footerTree(driver), (element) => element.type === 'button')).includes('Trash'))
 
-      rows[1].props.onSelect()
-      await tick()
+      await clickFooterTrash(driver)
       const tree = driver.render()
       assert.ok(dump(tree).includes('Select all'))
       assert.ok(!dump(tree).includes('全选'))
@@ -524,7 +574,7 @@ describe('i18n', () => {
   it('falls back to a real label when the host exposes no locale service', () => {
     const driver = mount({ withService: false })
     try {
-      const label = textOf(menuRows(driver)[0])
+      const label = textOf(menuRow(driver))
       assert.ok(label.length > 0)
       assert.ok(!label.includes('deleteChat.'), 'a missing service must not leak the raw key')
     } finally {
