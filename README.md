@@ -48,25 +48,14 @@ This plugin is the scissors.
 
 ## Install
 
-### From the plugin market
+In DSH, just ask:
 
-Host → **Settings → Plugins → Discover → Index sources**, add:
+> Install https://github.com/abangbang/dsh-delete-chat
 
-```
-https://cdn.jsdelivr.net/gh/abangbang/dsh-delete-chat@main/market/index.json
-```
+Chinese works too: 帮我安装 https://github.com/abangbang/dsh-delete-chat
 
-(Icon paths in the index are relative; jsDelivr serves the whole repo as a static site, so they
-resolve.)
-
-### With `dsh plugin add`
-
-```bash
-dsh plugin --profile <your-profile> add https://github.com/abangbang/dsh-delete-chat/archive/refs/heads/main.tar.gz
-```
-
-On the official desktop app the profile belongs to the app's own plugin manager — install through
-**Settings → Plugins** instead.
+Restart DSH afterwards. The plugin tree — and the client bundle, which is served with `immutable`
+cache headers — are both composed at boot, so a page refresh is not enough.
 
 ## Usage
 

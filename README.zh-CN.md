@@ -44,23 +44,12 @@ DSH 自己的两个包就把这个缺口写在了文档里：
 
 ## 安装
 
-### 从市场装
+在 DSH 里直接说：
 
-宿主 → **设置 → 插件 → 发现 → 索引源**，填：
+> 帮我安装 https://github.com/abangbang/dsh-delete-chat
 
-```
-https://cdn.jsdelivr.net/gh/abangbang/dsh-delete-chat@main/market/index.json
-```
-
-索引里的图标是相对路径，jsDelivr 会把整个仓库当静态站，所以能解析。
-
-### 用 `dsh plugin add`
-
-```bash
-dsh plugin --profile <你的profile> add https://github.com/abangbang/dsh-delete-chat/archive/refs/heads/main.tar.gz
-```
-
-官方桌面端的 profile 归应用自己的插件管理器所有，请用应用内 **设置 → 插件** 安装。
+装完**重启 DSH** 生效——插件树在启动时组装，客户端 bundle 也在启动时组合并带 `immutable` 缓存头，
+刷新页面拿不到新的。
 
 ## 用法
 
