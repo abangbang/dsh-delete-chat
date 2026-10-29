@@ -32,12 +32,12 @@ grows — this plugin is the scissors.
 
 | | |
 |---|---|
-| **Row menu** | Session row "⋯" → Delete session, trash glyph, danger red, red-tinted hover |
-| **Localized** | Wording follows the host language (zh / en) live — the row and an already-open dialog both re-render on a switch |
-| **Confirmation** | Title, disk usage, directory count; then a field-by-field report |
-| **Actually deletes** | Archive (stops running work) → recursive directory removal → atomic `workspace.json` rewrite (with backup) → projection-cache purge |
+| **Soft delete** | Session row "⋯" → Delete chat moves the directory into `~/.dsh/session-trash` — a rename on the same volume, never a copy |
+| **Trash panel** | Same menu → Trash: filter, multi-select, restore, permanent delete, empty |
+| **Hard to do by accident** | The permanent verbs live only inside the trash and re-label themselves before firing |
+| **Localized** | Wording follows the host language (zh / en) live — rows, dialog and panel all re-render on a switch |
 | **Both layouts** | Per-project `<root>/<project>/session-<uuid>/` and flat `<root>/session-<uuid>/` |
-| **CLI fallback** | `dsh-delete-chat --list / --preview / --yes`, usable without the GUI |
+| **CLI** | `--trash` / `--trash-list` / `--restore` / `--purge --yes` / `--empty --yes`, usable without the GUI |
 | **Self-hosted index** | Ships a format-1 market index — add it as an index source for a private market |
 
 ## Install
@@ -101,76 +101,95 @@ at boot too and served with `immutable` cache headers — a page refresh returns
 
 ## Usage
 
-Sidebar → session row → **"⋯" → Delete session** → confirm.
-
-The dialog shows disk usage first, then the outcome:
+**Delete** — session row → **"⋯" → Delete chat** → confirm. The row leaves the list, running
+work stops, and the directory moves into the trash:
 
 ```
-Status        deleted
+Status        moved to trash
 Archive       archived, running work stopped
-Directories   1 removed
-Freed         274.4 KB
-Accounting    3 references removed
-Proj. cache   1 entry cleared
+Size          274.4 KB
+Trash         ~/.dsh/session-trash/--proj--/session-…
 ```
+
+Nothing is lost: this is a rename, and it stays reversible until you say otherwise.
+
+**Trash** — session row → **"⋯" → Trash**. The panel lists every trashed conversation with its size,
+project and deletion time:
+
+- **filter** by title, path or project;
+- **select** one row or all of them — the footer counts the selection;
+- **Restore** moves the directories back, re-accounts them and unarchives them;
+- **Delete permanently** and **Empty trash** arm on the first click (the button becomes
+  `Confirm permanent deletion of N`) and only fire on the second.
 
 ### CLI
 
 ```bash
-dsh-delete-chat --list                    # every session: size, archived, pinned, live
-dsh-delete-chat --preview session-<uuid>  # read-only
-dsh-delete-chat --yes session-<uuid>      # delete
-dsh-delete-chat --home D:\other\.dsh --list
+dsh-delete-chat --list                     # sessions on disk + trash count
+dsh-delete-chat --trash-list               # what the trash holds
+dsh-delete-chat --trash session-<uuid>     # soft delete
+dsh-delete-chat --restore session-<uuid>   # bring it back
+dsh-delete-chat --purge session-<uuid> --yes
+dsh-delete-chat --empty --yes
+dsh-delete-chat --preview session-<uuid>
 ```
 
-Without `--yes` it prints the preview and exits `1`.
+Permanent verbs refuse to run without `--yes`; the soft ones do not, because they are reversible.
 
 ## How it works
 
-One deletion, four actions, fixed order:
+### Moving a conversation to the trash
 
 | Step | Action | Why this order |
 |---|---|---|
-| 1 | `archiveSession(id, { stopActivity: true })` | Hides the row everywhere immediately, stops a running turn, and `ArchivedSessionGate` refuses later wakes — nothing re-surfaces while files disappear |
-| 2 | Recursively remove `<sessions-root>/…/session-<uuid>/` | Takes `session.v4.jsonl.zstd` with it |
-| 3 | Rewrite `storages/workspace.json` | Drops `sessionIds` / `archivedSessionIds` / `pinnedSessionIds`; temp file + atomic rename, original kept as `.bak-<stamp>` |
-| 4 | Purge `storages/session_projcache/<id>.*` | Otherwise search keeps entries that cannot be opened |
+| 1 | `archiveSession(id, { stopActivity: true })` | Hides the row everywhere immediately, stops a running turn, and `ArchivedSessionGate` refuses later wakes |
+| 2 | `rename` `<sessions-root>/…/session-<uuid>/` → `<home>/session-trash/<project>/session-<uuid>/` | Same volume, so the move is instant and atomic; a root on another volume falls back to copy + remove (`EXDEV`) |
+| 3 | Rewrite `storages/workspace.json` | Drops the id from `sessionIds` so the sidebar row cannot come back; `.bak-<stamp>` kept |
+| 4 | Append `<home>/session-trash/index.json` | Keeps title, cwd, size and deletion time without decoding a single zstd frame |
 
-A step-1 failure is not fatal — a session unknown to the workspace registry still gets its files
-removed, and the report says so.
+### The trash
+
+```
+~/.dsh/
+├── sessions/                      # live sessions
+│   └── <project>/session-<uuid>/
+└── session-trash/                 # everything you deleted
+    ├── index.json                 # titles, cwd, sizes, timestamps
+    └── <project>/session-<uuid>/  # the directory, byte for byte
+```
+
+The directory tree is the truth: a directory the manifest does not know is listed with its id as the
+title, and a manifest row whose directory vanished is reported as missing instead of being shown.
+
+Restore reverses steps 2–3 and asks the live registry to re-project the row (`insertSessionBefore`)
+when it can. Permanent deletion — only ever reachable from the trash — unlinks the directory,
+forgets the manifest row and clears the projection cache.
 
 ### API
 
-`POST /delete-chat/api/{list,preview,delete}`, fenced by the host's own
-`connection.requestRejection`. `sessionId` must start with `session-` and contain only
-`[0-9A-Za-z._-]`: it is validated before it ever reaches `join()`/`rm()`, so `../`, drive letters
-and separators cannot become path segments.
+`POST /delete-chat/api/{trash,trashList,restore,purge,empty}` plus `{list,preview,delete}`, where
+`delete` is the permanent single-shot kept for scripts. All of them are fenced by the host's own
+`connection.requestRejection`, and `sessionId` is validated before it ever reaches `join()`/`rm()`:
+`../`, drive letters and separators cannot become path segments.
 
 ## When it fails
 
-Nothing is atomic here — a delete touches a live host, a directory tree and a JSON store. The
-report says which part refused, and every failure has a way forward.
-
-| What failed | What the dialog shows | What is actually true |
+| What failed | What you see | What is actually true |
 |---|---|---|
-| `POST /delete-chat/api/delete` itself | phase `error`, red box, session untouched | Nothing was written |
-| One directory would not go (file lock, permissions, OneDrive sync) | status **partially deleted**, path + reason listed | The other paths are gone; the row is already archived |
-| `workspace.json` rewrite refused | status **partially deleted**, store path listed, `.bak-<stamp>` kept | Files are gone, the stale reference is pruned on the next boot |
-| A projection-cache entry refuses | status **partially deleted**, that one cache path listed | The session log is gone — only a disposable cache file remains |
+| The host call itself | dialog phase `error`, red box | Nothing was written |
+| The move refused (on Windows: a directory another process holds) | dialog error carrying `EBUSY`/`EPERM` | The archive already ran; the directory is still in the sessions root, so unarchive it and it is back |
+| `workspace.json` rewrite refused after a good move | the trash row exists, the sidebar row may linger | Files are safe in the trash; restore them, or clear the stale reference by hand |
+| A purge cannot unlink | panel lists path + reason, and `N failed` | The other selections were deleted; the failing one is still listed |
+| Restore cannot move back | `N failed` with the path | The directory is still in the trash; nothing was half-moved |
 
 Recovery, in the order to try it:
 
-1. **Retry** — the dialog keeps a retry button whenever the report lists failures. The operation is
-   idempotent: a second call re-archives (no-op), re-removes what is left, and re-prunes.
-2. **Copy failure details** — the machine-readable report, ready for a bug report.
-3. **CLI fallback** — the same footer shows the exact command. Quit DSH first: the lock that
-   usually blocks a directory is the live host's own write handle.
-   ```bash
-   dsh-delete-chat --yes session-<uuid>
-   ```
+1. **Restore** — anything in the trash can come back with one click; that is the whole point.
+2. **Retry** — the dialog and the panel are idempotent: run them again after fixing the cause
+   (close the handle, quit the sync client).
+3. **CLI fallback** — quit DSH first; the lock that blocks a directory is usually the host's own
+   handle. `dsh-delete-chat --trash | --restore | --purge --yes`.
 4. **Roll back the store** — every rewrite leaves `workspace.json.bak-<stamp>` next to it.
-5. **Bring the conversation back** — if the files survived (a directory-failure-only run), the
-   archive is reversible: unarchive the session and it returns to its list.
 
 ## Platform support
 
@@ -184,33 +203,38 @@ Recovery, in the order to try it:
 
 Windows and POSIX assertions live in one file (`test/platform.test.mjs`) and are mutually exclusive:
 the branch that does not belong to the running OS is skipped **with a reason**, so a green run on one
-platform never stands in for another. `npm test` is 71 tests.
+platform never stands in for another. `npm test` is 80 tests.
 
-The only platform difference users actually hit is the middle row: on Windows a directory held open
-by another process cannot be removed, so the plugin reports `EBUSY`, offers *Retry*, and prints the
-CLI fallback — quit DSH, then `dsh-delete-chat --yes <id>`. On macOS and Linux that same deletion
-simply succeeds.
+The only platform difference users actually hit is the third row: on Windows a directory held open by
+another process cannot be moved, so the dialog reports `EBUSY`, and the CLI fallback is
+`dsh-delete-chat --trash <id>` after quitting DSH. On macOS and Linux that same move simply succeeds.
 
 ## Known limitations
 
-- **No cascade**: subagent and forked child sessions survive, and their `parent_session` dangles.
+- **The trash is not the OS recycle bin.** It lives at `<DSH home>/session-trash`; deleting
+  that directory by hand is a permanent delete that bypasses every confirmation.
+- **Restore may need a restart.** The live row comes back immediately when the workspace registry
+  exposes `insertSessionBefore`; without it the directory is restored and the row reappears on the
+  next boot.
+- **No cascade**: subagent and forked child sessions survive on their own, and their
+  `parent_session` dangles.
 - **Attachments untouched**: `~/.dsh/attachments/v1/objects` is content-addressed and shared, so
-  deleting one session must not delete objects other sessions still reference.
-- **In-memory object lingers**: the `sessions` service exposes only `create`/`get`/`list`, no
-  dispose. An archived session runs no model step, and the object disappears on restart.
-- **`workspace.json` may be rewritten once** by the host from its in-memory projection. The
-  archive set still hides the row; a restart leaves it fully clean.
+  neither trashing nor purging one session deletes objects other sessions still reference.
+- **In-memory object lingers**: the `sessions` service exposes only `create`/`get`/`list`, so a
+  trashed session's object stays until restart. It runs no model step while archived.
 
 ## Development
 
 ```bash
-npm test                 # 30 tests: host logic / HTTP envelope / client bundle contract
+npm test                 # 80 tests: host logic, trash, HTTP envelope, client, platform matrix, installer
 npm run pack             # release/dsh-delete-chat-<version>.tgz
 npm run market-index     # regenerate market/index.json from HEAD
 npm run rename-owner --  <github-user> [display-name]
 ```
 
-All three suites run against `mkdtemp` fixtures and a fake context — no running DSH, no real data.
+Every suite runs against `mkdtemp` fixtures and a fake context — no running DSH, no real data. The
+client suite renders the real components through a fake React, so the assertions read the text a
+user would see.
 
 ## License
 

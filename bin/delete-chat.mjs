@@ -1,44 +1,72 @@
 #!/usr/bin/env node
 /**
- * dsh-delete-chat — command line fallback.
+ * dsh-delete-chat — command line.
  *
- * Same core as the plugin, without a running host: useful when the GUI half is
- * not mounted yet, when you want a scripted cleanup, or when DSH is closed and
- * you would rather not start it.
+ * The same core the plugin uses: soft delete into the trash, restore, purge,
+ * empty. Useful when the GUI half is not mounted, for scripted cleanup, or when
+ * DSH is closed and a locked directory would otherwise refuse the move.
  *
- *   node bin/delete-chat.mjs --list
+ *   node bin/delete-chat.mjs --list                     # sessions on disk + trash count
+ *   node bin/delete-chat.mjs --trash-list               # what the trash holds
+ *   node bin/delete-chat.mjs --trash session-<uuid>     # soft delete
+ *   node bin/delete-chat.mjs --restore session-<uuid>   # bring it back
+ *   node bin/delete-chat.mjs --purge session-<uuid> --yes
+ *   node bin/delete-chat.mjs --empty --yes
  *   node bin/delete-chat.mjs --preview session-<uuid>
- *   node bin/delete-chat.mjs --yes session-<uuid>
  *
- * `--home` (or DSH_HOME) points at a DSH home other than ~/.dsh.
- *
- * Caveat the GUI does not have: with DSH running, a session that is still live
- * in memory keeps its row and may error on the next write. Archive it in the UI
- * first, or close DSH.
+ * `--home` (or DSH_HOME) points at a DSH home other than ~/.dsh. Permanent verbs
+ * require `--yes`; the soft ones do not, because they are reversible.
  */
 
 import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
 
-import { deleteSession, listSessions, previewSession } from '../lib/index.js'
+import {
+  emptyTrash,
+  listSessions,
+  listTrash,
+  previewSession,
+  purgeSessions,
+  restoreSessions,
+  trashSession,
+} from '../lib/index.js'
 
 /**
  * Parse the flags this CLI understands.
  * @param argv - process arguments after the script name.
- * @returns `{ home, list, preview, yes, sessionId }`.
+ * @returns the option bag.
  */
 function parseArgs(argv) {
-  const out = { home: undefined, list: false, preview: false, yes: false, sessionId: undefined }
+  const out = {
+    home: undefined,
+    list: false,
+    trashList: false,
+    preview: false,
+    yes: false,
+    trash: false,
+    restore: false,
+    purge: false,
+    empty: false,
+    sessionId: undefined,
+  }
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index]
     if (arg === '--list') out.list = true
+    else if (arg === '--trash-list') out.trashList = true
     else if (arg === '--preview') out.preview = true
+    else if (arg === '--trash') out.trash = true
+    else if (arg === '--restore') out.restore = true
+    else if (arg === '--purge') out.purge = true
+    else if (arg === '--empty') out.empty = true
     else if (arg === '--yes' || arg === '-y') out.yes = true
     else if (arg === '--home') {
       out.home = argv[index + 1]
       index += 1
     } else if (arg.startsWith('--home=')) out.home = arg.slice('--home='.length)
-    else if (arg.startsWith('-')) throw new Error(`unknown flag "${arg}"`)
+    else if (arg === '--help' || arg === '-h') {
+      console.log('usage: delete-chat --list | --trash-list | --trash <id> | --restore <id> | --purge <id> --yes | --empty --yes | --preview <id>')
+      process.exit(0)
+    } else if (arg.startsWith('-')) throw new Error(`unknown flag "${arg}"`)
     else if (out.sessionId === undefined) out.sessionId = arg
     else throw new Error(`unexpected argument "${arg}"`)
   }
@@ -65,7 +93,7 @@ function formatBytes(bytes) {
 const args = parseArgs(process.argv.slice(2))
 const home = resolve(args.home ?? process.env.DSH_HOME ?? join(homedir(), '.dsh'))
 
-/** Host context shim: only the two service reads the core performs. */
+/** Host context shim: only the service reads the core performs. */
 const ctx = {
   get(name) {
     if (name === 'sessionPersistence') return { root: join(home, 'sessions') }
@@ -74,7 +102,7 @@ const ctx = {
   },
 }
 
-if (args.list || args.sessionId === undefined) {
+if (args.list || (args.sessionId === undefined && !args.trashList && !args.empty)) {
   const listing = await listSessions(ctx)
   console.log(`root: ${listing.root}`)
   console.log(`sessions: ${listing.rows.length}\n`)
@@ -83,30 +111,79 @@ if (args.list || args.sessionId === undefined) {
       .filter(Boolean).join(',')
     console.log(`${row.sessionId}  ${formatBytes(row.bytes).padStart(9)}  ${row.updatedAt ?? '-'}  ${row.project}${flags ? `  [${flags}]` : ''}`)
   }
+  const trash = await listTrash(ctx)
+  console.log(`\ntrash: ${trash.root} (${trash.rows.length})`)
+  process.exit(0)
+}
+
+if (args.trashList) {
+  const trash = await listTrash(ctx)
+  console.log(`root: ${trash.root}`)
+  console.log(`sessions: ${trash.rows.length}\n`)
+  for (const row of trash.rows) {
+    console.log(`${row.sessionId}  ${formatBytes(row.bytes).padStart(9)}  ${row.deletedAt ?? '-'}  ${row.displayTitle}`)
+  }
+  if (trash.missing.length > 0) {
+    console.log(`\n${trash.missing.length} manifest row(s) have no directory on disk`)
+  }
   process.exit(0)
 }
 
 if (args.preview) {
-  const preview = await previewSession(ctx, args.sessionId)
-  console.log(JSON.stringify(preview, null, 2))
+  if (args.sessionId === undefined) throw new Error('--preview needs a session id')
+  console.log(JSON.stringify(await previewSession(ctx, args.sessionId), null, 2))
   process.exit(0)
 }
 
-const preview = await previewSession(ctx, args.sessionId)
-console.log(`session : ${preview.sessionId}`)
-console.log(`root    : ${preview.root}`)
-console.log(`size    : ${formatBytes(preview.bytes)}`)
-for (const dir of preview.directories) console.log(`dir     : ${dir.path} (${formatBytes(dir.bytes)})`)
-if (!preview.onDisk) console.log('dir     : 磁盘上没有该会话目录')
-if (!args.yes) {
-  console.log('\n未删除。确认后加 --yes 重跑。')
-  process.exit(1)
+if (args.trash) {
+  if (args.sessionId === undefined) throw new Error('--trash needs a session id')
+  const preview = await previewSession(ctx, args.sessionId)
+  if (!preview.onDisk) {
+    console.error(`no session directory for ${args.sessionId}`)
+    process.exit(1)
+  }
+  const report = await trashSession(ctx, { sessionId: args.sessionId, displayTitle: args.sessionId })
+  console.log(`archived : ${report.archived}`)
+  console.log(`moved    : ${report.moved}`)
+  console.log(`trash    : ${report.path}`)
+  console.log(`size     : ${formatBytes(report.bytes)}`)
+  console.log('\nReversible: use --restore to bring it back, --purge to delete it for good.')
+  process.exit(0)
 }
 
-const report = await deleteSession(ctx, args.sessionId)
-console.log(`\narchived: ${report.archived}`)
-console.log(`removed : ${report.removedDirectories.length} 个目录，释放 ${formatBytes(report.freedBytes)}`)
-console.log(`accounting: ${report.workspaceAccounting === null ? '无变化' : JSON.stringify(report.workspaceAccounting)}`)
-console.log(`projection cache: ${report.projectionCacheRemoved} 项`)
-for (const failure of report.failures) console.log(`failure : ${failure.path} — ${failure.error}`)
-process.exit(report.deleted ? 0 : 1)
+if (args.restore) {
+  if (args.sessionId === undefined) throw new Error('--restore needs a session id')
+  const report = await restoreSessions(ctx, { sessionIds: [args.sessionId] })
+  for (const row of report.restored) console.log(`restored ${row.sessionId} -> ${row.path}`)
+  for (const failure of report.failures) console.error(`failed   ${failure.path} — ${failure.error}`)
+  process.exit(report.restored.length > 0 ? 0 : 1)
+}
+
+if (args.purge) {
+  if (args.sessionId === undefined) throw new Error('--purge needs a session id')
+  if (!args.yes) {
+    console.log(`permanent deletion of ${args.sessionId} needs --yes`)
+    process.exit(1)
+  }
+  const report = await purgeSessions(ctx, { sessionIds: [args.sessionId] })
+  console.log(`removed : ${report.removedDirectories.length}`)
+  console.log(`freed   : ${formatBytes(report.freedBytes)}`)
+  for (const failure of report.failures) console.error(`failed  ${failure.path} — ${failure.error}`)
+  process.exit(report.deleted ? 0 : 1)
+}
+
+if (args.empty) {
+  if (!args.yes) {
+    const listing = await listTrash(ctx)
+    console.log(`emptying ${listing.rows.length} session(s) needs --yes`)
+    process.exit(1)
+  }
+  const report = await emptyTrash(ctx)
+  console.log(`removed : ${report.removedDirectories.length}`)
+  console.log(`freed   : ${formatBytes(report.freedBytes)}`)
+  for (const failure of report.failures) console.error(`failed  ${failure.path} — ${failure.error}`)
+  process.exit(report.failures.length === 0 ? 0 : 1)
+}
+
+console.error('nothing to do; try --help')
+process.exit(1)

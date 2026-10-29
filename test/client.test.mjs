@@ -1,10 +1,10 @@
 /**
- * Client-half test: loads `lib/client.js` through a stand-in module loader,
- * runs the factory with a fake `require`, mounts `apply()` against a fake
- * context, and asserts both slot entries land with the right names.
+ * Client half: registration, row appearance, the soft-delete dialog, the trash
+ * panel (filter / select / restore / purge / empty), and language switching.
  *
- * No DOM and no real React: only the registration path runs, which is exactly
- * the part that breaks silently when a slot name or register shape is wrong.
+ * There is no DOM here. `flatten()` expands function components the way the real
+ * renderer would, so assertions read the text a user would see rather than an
+ * opaque component reference.
  *
  * Run with: node --test test/client.test.mjs
  */
@@ -18,8 +18,24 @@ let exports
 const loaded = []
 
 /**
- * Fake React: only what the registration path touches.
+ * A primitives surface shaped like the real build's. The row component renders its
+ * children so `flatten()` can reach the label text a user would read; the icons
+ * render nothing, which is all a stroke glyph contributes to an assertion.
  */
+const PRIMITIVES = {
+  MenuItemButton: function MenuItemButton(props) {
+    const children = Array.isArray(props.children) ? props.children : [props.children]
+    return { type: 'element', args: ['div', props, ...children] }
+  },
+  IconTrashOutlineRegular: function IconTrashOutlineRegular() {
+    return null
+  },
+  IconArchiveOutlineRegular: function IconArchiveOutlineRegular() {
+    return null
+  },
+}
+
+/** Fake React: enough to register, render and drive the plugin without a DOM. */
 const fakeReact = {
   createElement: (...args) => ({ type: 'element', args }),
   Fragment: Symbol('Fragment'),
@@ -31,26 +47,18 @@ const fakeReact = {
 }
 
 /**
- * Package resolver for the bundle: react plus an empty primitives surface.
+ * Package resolver for the bundle.
  * @param id - module id.
  * @returns the module namespace.
  */
 function fakeRequire(id) {
   if (id === 'react') return fakeReact
-  if (id === '@deepseek-ai/dsh-client-ui-primitives') return {}
+  if (id === '@deepseek-ai/dsh-client-ui-primitives') return PRIMITIVES
   throw new Error(`client test: unexpected module "${id}"`)
 }
 
-/** A primitives surface that has the real build's shape. */
-const PRIMITIVES = {
-  MenuItemButton: function MenuItemButton() {},
-  IconTrashOutlineRegular: function IconTrashOutlineRegular() {},
-}
-
 /**
- * A stand-in for the host locale service (`ctx.get('locale')`): register / bind /
- * subscribe / getSnapshot / setLocale, resolving through the same `[active, 'en']`
- * fallback chain the real runtime uses.
+ * A stand-in for the host locale service (`ctx.get('locale')`).
  * @param initial - starting language id.
  * @returns the fake service.
  */
@@ -105,18 +113,118 @@ function createLocaleService(initial = 'zh') {
 }
 
 /**
- * Mount one module instance against a fake context.
- * @param options - `{ primitives, locale, withService }`; `withService: false`
- *   omits the locale service, which is how a stripped host looks.
- * @returns the two registered components plus the fake locale service.
+ * Expand function components into their rendered output.
+ * @param node - fake element, array or scalar.
+ * @returns the same tree with components replaced by what they return.
  */
-function mountInstance(options = {}) {
-  const primitives = options.primitives ?? PRIMITIVES
+function flatten(node) {
+  if (node === null || node === undefined || typeof node !== 'object') return node
+  if (Array.isArray(node)) return node.map(flatten)
+  if (node.type !== 'element') return node
+  const [type, props, ...children] = node.args
+  if (typeof type === 'function') return flatten(type({ ...props, children }))
+  return { type, props, children: children.map(flatten) }
+}
+
+/**
+ * Every element in a flattened tree.
+ * @param node - flattened tree.
+ * @returns element nodes.
+ */
+function elements(node) {
+  const out = []
+  ;(function walk(current) {
+    if (current === null || current === undefined) return
+    // Rows render as `rows.map(...)`, so a child may itself be an array.
+    if (Array.isArray(current)) {
+      for (const item of current) walk(item)
+      return
+    }
+    if (typeof current !== 'object') return
+    out.push(current)
+    for (const child of current.children ?? []) walk(child)
+  })(node)
+  return out
+}
+
+/**
+ * All text under a node.
+ * @param node - flattened tree.
+ * @returns concatenated strings.
+ */
+function textOf(node) {
+  if (node === null || node === undefined) return ''
+  if (typeof node === 'string') return node
+  if (Array.isArray(node)) return node.map(textOf).join('')
+  if (typeof node !== 'object') return ''
+  return textOf(node.children ?? [])
+}
+
+/**
+ * Find the first element matching a predicate.
+ * @param node - flattened tree.
+ * @param predicate - test.
+ * @returns the node, or undefined.
+ */
+function find(node, predicate) {
+  return elements(node).find(predicate)
+}
+
+/**
+ * Find a button by the text it renders.
+ * @param node - flattened tree.
+ * @param label - substring of the button's text.
+ * @returns the node, or undefined.
+ */
+function button(node, label) {
+  return find(node, (element) => element.type === 'button' && textOf(element).includes(label))
+}
+
+/** Serialised tree, for "must (not) contain" assertions. */
+const dump = (node) => JSON.stringify(flatten(node))
+
+/** Let queued promises and the zero-delay timer settle. */
+const tick = () => new Promise((resolve) => setTimeout(resolve, 0))
+
+/** Host stubs used by most cases. */
+const ROUTES = {
+  trash: { sessionId: 'session-a', trashed: true, archived: 'ok', bytes: 2048, path: '/home/.dsh/session-trash/p/session-a' },
+  trashList: {
+    root: '/home/.dsh/session-trash',
+    rows: [
+      { sessionId: 'session-a', displayTitle: 'alpha 会话', bytes: 2048, project: 'p', deletedAt: '2026-10-29T01:02:03.000Z' },
+      { sessionId: 'session-b', displayTitle: 'beta 会话', bytes: 1024, project: 'p', deletedAt: '2026-10-28T01:02:03.000Z' },
+    ],
+  },
+  restore: { restored: [{ sessionId: 'session-a' }], failures: [] },
+  purge: { removedDirectories: ['/t/a', '/t/b'], freedBytes: 4096, failures: [], deleted: true },
+  empty: { removedDirectories: ['/t/a', '/t/b'], freedBytes: 4096, failures: [], deleted: true },
+}
+
+/**
+ * Mount a module instance against a fake context and a routed host stub.
+ * @param options - `{ locale, withService, routes }`.
+ * @returns the driver.
+ */
+function mount(options = {}) {
   const locale = createLocaleService(options.locale)
   const withService = options.withService !== false
+  const routes = options.routes ?? ROUTES
+  const calls = []
+  const originalFetch = globalThis.fetch
+
+  globalThis.fetch = async (url, init) => {
+    const target = String(url)
+    const body = JSON.parse(init?.body ?? '{}')
+    calls.push({ target, body })
+    const method = target.split('/').pop()
+    const value = typeof routes[method] === 'function' ? routes[method](body) : routes[method]
+    return { ok: true, status: 200, json: async () => ({ ok: true, value: value ?? {} }) }
+  }
+
   const instance = spec.factory((id) => {
     if (id === 'react') return fakeReact
-    if (id === '@deepseek-ai/dsh-client-ui-primitives') return primitives
+    if (id === '@deepseek-ai/dsh-client-ui-primitives') return PRIMITIVES
     throw new Error(`client test: unexpected module "${id}"`)
   })
   const registrations = []
@@ -131,47 +239,27 @@ function mountInstance(options = {}) {
       },
     },
   })
+
+  const overrides = registrations.find((row) => row.entry.name === 'shell.overlay')?.component
+  const menu = registrations.find((row) => row.entry.name === 'sidebar.workspaces.session.menu.item')?.component
+
   return {
-    menu: registrations.find((row) => row.entry.name === 'sidebar.workspaces.session.menu.item').component,
-    dialog: registrations.find((row) => row.entry.name === 'shell.overlay').component,
     locale,
+    calls,
+    menu,
+    overrides,
+    registrations,
+    render: () => flatten(overrides()),
+    restore: () => {
+      globalThis.fetch = originalFetch
+    },
   }
 }
 
-/**
- * Expand function components into their rendered output. The fake renderer records
- * `{ type, args }` without invoking components, so a report rendered by `ReportView`
- * would otherwise stay an opaque function reference.
- * @param node - fake element, array or scalar.
- * @returns the same tree with components replaced by what they return.
- */
-function flatten(node) {
-  if (node === null || node === undefined || typeof node !== 'object') return node
-  if (Array.isArray(node)) return node.map(flatten)
-  if (node.type !== 'element') return node
-  const [type, props, ...children] = node.args
-  if (typeof type === 'function') return flatten(type({ ...props, children }))
-  return { type, props, children: children.map(flatten) }
+/** The two rows this plugin puts in a session menu. */
+function menuRows(driver) {
+  return flatten(driver.menu({ sessionId: 'session-a', displayTitle: 'demo', cwd: '/p' })).children
 }
-
-/**
- * Find the first button whose children contain exactly `label`.
- * @param node - flattened tree.
- * @param label - the button's visible text.
- * @returns the button node, or undefined.
- */
-function findButton(node, label) {
-  if (node === null || node === undefined || typeof node !== 'object') return undefined
-  if (node.type === 'button' && (node.children ?? []).some((child) => child === label)) return node
-  for (const child of node.children ?? []) {
-    const found = findButton(child, label)
-    if (found !== undefined) return found
-  }
-  return undefined
-}
-
-/** Let queued microtasks and the zero-delay timer settle. */
-const tick = () => new Promise((resolve) => setTimeout(resolve, 0))
 
 before(async () => {
   globalThis.window = {
@@ -187,407 +275,260 @@ before(async () => {
 })
 
 describe('bundle', () => {
-  it('registers under the package name', () => {
+  it('registers under the package name and exports a mountable face', () => {
     assert.equal(spec.id, 'dsh-delete-chat')
-  })
-
-  it('exports a mountable face', () => {
     assert.equal(exports.name, 'dsh-delete-chat')
-    assert.equal(typeof exports.apply, 'function')
     assert.deepEqual(exports.inject, ['slots'])
+    assert.equal(typeof exports.apply, 'function')
   })
 })
 
 describe('slots', () => {
-  it('injects both entries into the documented slot names', () => {
-    const registrations = []
-    const injected = []
-    const ctx = {
-      effect(fn) {
-        const disposer = fn()
-        assert.equal(typeof disposer === 'function' || disposer === undefined, true)
-        return disposer
-      },
-      slots: {
-        inject(name, factory) {
-          injected.push(name)
-          return factory()
-        },
-        register(entry, component) {
-          registrations.push({ entry, component })
-          return () => {}
-        },
-      },
-    }
-
-    exports.apply(ctx)
-
-    assert.deepEqual(injected, ['sidebar.workspaces.session.menu.item', 'shell.overlay'])
-    assert.equal(registrations.length, 2)
-
-    const [menu, dialog] = registrations
-    assert.equal(menu.entry.name, 'sidebar.workspaces.session.menu.item')
-    assert.equal(menu.entry.id, 'delete-chat:menu-item')
-    assert.equal(typeof menu.component, 'function')
-
-    assert.equal(dialog.entry.name, 'shell.overlay')
-    assert.equal(dialog.entry.id, 'delete-chat:dialog')
-    assert.equal(typeof dialog.component, 'function')
-  })
-
-  it('renders nothing while no deletion is pending', () => {
-    const registrations = []
-    exports.apply({
-      effect: (fn) => fn(),
-      slots: {
-        inject: (_name, factory) => factory(),
-        register: (entry, component) => {
-          registrations.push({ entry, component })
-          return () => {}
-        },
-      },
-    })
-    const dialog = registrations.find((row) => row.entry.name === 'shell.overlay')
-    assert.equal(dialog.component(), null)
-  })
-})
-
-/** The row/title glyph and the confirm button must be visibly destructive. */
-describe('danger styling', () => {
-  const DANGER = 'rgb(255, 123, 114)'
-
-  /**
-   * Mount a fresh module instance whose `require` answers the primitives.
-   * @param locale - active language id for the fake locale service.
-   * @returns the two registered components plus the fake service.
-   */
-  function mount(locale = 'zh') {
-    return mountInstance({ primitives: PRIMITIVES, locale })
-  }
-
-  /**
-   * Depth-first visit of a fake element tree.
-   * @param node - element, array or scalar.
-   * @param visit - called for every element node.
-   */
-  function walk(node, visit) {
-    if (node === null || node === undefined || typeof node !== 'object') return
-    if (node.type === 'element') visit(node)
-    for (const arg of node.args ?? []) {
-      if (Array.isArray(arg)) for (const item of arg) walk(item, visit)
-      else walk(arg, visit)
-    }
-  }
-
-  it('puts the trash glyph and the danger colour on the menu row', () => {
-    const { menu } = mount()
-    const element = menu({ sessionId: 'session-1', displayTitle: 'demo' })
-
-    assert.equal(element.args[0], PRIMITIVES.MenuItemButton, 'uses the design system row')
-    const props = element.args[1]
-    assert.equal(props.className, 'dsh-delete-chat__danger-row')
-    assert.equal(props.style.color, DANGER)
-
-    assert.ok(props.icon !== undefined, 'the row must carry an icon')
-    assert.equal(props.icon.args[1].style.color, DANGER, 'icon wrapper carries the danger colour')
-
-    const label = element.args[2]
-    assert.equal(label.args[1].style.color, DANGER, 'label carries the danger colour')
-  })
-
-  it('renders a solid danger confirm button with the same glyph', () => {
-    const originalFetch = globalThis.fetch
-    globalThis.fetch = () => Promise.reject(new Error('offline'))
+  it('fills the session menu and the overlay host', () => {
+    const driver = mount()
     try {
-      const { menu, dialog } = mount()
-      const opened = menu({ sessionId: 'session-1', displayTitle: 'demo' })
-      opened.args[1].onSelect()
-
-      const tree = dialog()
-      assert.notEqual(tree, null, 'the overlay must render once a deletion is pending')
-
-      const buttons = []
-      walk(tree, (node) => {
-        if (node.args[0] === 'button') buttons.push(node)
-      })
-      const confirm = buttons.find((node) => node.args.includes('永久删除'))
-      assert.ok(confirm !== undefined, 'a confirm button must exist')
-      assert.equal(confirm.args[1].style.background, '#c93b3b')
-      assert.equal(confirm.args[1].style.color, '#fff')
-      assert.ok(confirm.args.length > 3, 'the confirm button carries an icon plus its label')
+      assert.deepEqual(driver.registrations.map((row) => row.entry.name), [
+        'sidebar.workspaces.session.menu.item',
+        'shell.overlay',
+      ])
+      assert.equal(driver.registrations[0].entry.id, 'delete-chat:menu-item')
+      assert.equal(driver.registrations[1].entry.id, 'delete-chat:overlays')
     } finally {
-      globalThis.fetch = originalFetch
+      driver.restore()
+    }
+  })
+
+  it('renders nothing while both surfaces are closed', () => {
+    const driver = mount()
+    try {
+      assert.equal(driver.overrides(), null)
+    } finally {
+      driver.restore()
     }
   })
 })
 
-/** A language switch must reach the row, the dialog and the report. */
+describe('session menu', () => {
+  it('offers a danger delete row and a trash row', () => {
+    const driver = mount()
+    try {
+      const rows = menuRows(driver).filter((child) => child !== null)
+      assert.equal(rows.length, 2)
+
+      assert.ok(textOf(rows[0]).includes('删除会话'))
+      assert.equal(rows[0].props.className, 'dsh-delete-chat__danger-row')
+      assert.equal(rows[0].props.style.color, 'rgb(255, 123, 114)')
+      assert.ok(rows[0].props.icon !== undefined, 'the delete row carries a glyph')
+
+      assert.ok(textOf(rows[1]).includes('回收站'))
+      assert.equal(rows[1].props.className, undefined, 'the trash row is not a danger row')
+    } finally {
+      driver.restore()
+    }
+  })
+})
+
+describe('soft delete dialog', () => {
+  it('says it moves the conversation to the trash, and calls the trash route', async () => {
+    const driver = mount()
+    try {
+      menuRows(driver)[0].props.onSelect()
+      await tick()
+
+      let tree = driver.render()
+      assert.ok(dump(tree).includes('移入回收站'), 'the body must say it moves to the trash')
+      assert.ok(!dump(tree).includes('不可撤销'), 'soft delete must not threaten permanence')
+
+      button(tree, '移入回收站').props.onClick()
+      await tick()
+
+      const trashCall = driver.calls.find((call) => call.target.endsWith('/trash'))
+      assert.ok(trashCall !== undefined, 'the host must receive a /trash call')
+      assert.equal(trashCall.body.sessionId, 'session-a')
+      assert.equal(trashCall.body.displayTitle, 'demo')
+      assert.equal(trashCall.body.cwd, '/p')
+      assert.ok(!driver.calls.some((call) => call.target.endsWith('/delete')), 'nothing permanent yet')
+
+      tree = driver.render()
+      assert.ok(dump(tree).includes('已移入回收站'))
+      assert.ok(dump(tree).includes('/home/.dsh/session-trash/p/session-a'), 'the report names the trash path')
+    } finally {
+      driver.restore()
+    }
+  })
+})
+
+describe('trash panel', () => {
+  /**
+   * Open the panel through the trash row and wait for the listing.
+   * @param options - mount options.
+   * @returns the driver.
+   */
+  async function openPanel(options = {}) {
+    const driver = mount(options)
+    menuRows(driver)[1].props.onSelect()
+    await tick()
+    return driver
+  }
+
+  it('lists what the trash holds', async () => {
+    const driver = await openPanel()
+    try {
+      const tree = driver.render()
+      assert.ok(textOf(tree).includes('alpha 会话'))
+      assert.ok(textOf(tree).includes('beta 会话'))
+      assert.ok(dump(tree).includes('2 个会话'))
+      assert.ok(driver.calls.some((call) => call.target.endsWith('/trashList')))
+    } finally {
+      driver.restore()
+    }
+  })
+
+  it('filters by title, path or project', async () => {
+    const driver = await openPanel()
+    try {
+      const search = find(driver.render(), (element) => element.props?.type === 'search')
+      assert.ok(search !== undefined, 'the panel needs a filter box')
+      search.props.onChange({ target: { value: 'alpha' } })
+      await tick()
+
+      const tree = driver.render()
+      assert.ok(textOf(tree).includes('alpha 会话'))
+      assert.ok(!textOf(tree).includes('beta 会话'), 'the filter must hide the rest')
+    } finally {
+      driver.restore()
+    }
+  })
+
+  it('purges a multi-selection only after a second click', async () => {
+    const driver = await openPanel()
+    try {
+      button(driver.render(), '全选').props.onClick()
+      await tick()
+      assert.ok(dump(driver.render()).includes('已选 2 项'))
+
+      button(driver.render(), '永久删除').props.onClick()
+      await tick()
+      assert.ok(dump(driver.render()).includes('确认永久删除 2 项'), 'the first click must only arm')
+      assert.ok(!driver.calls.some((call) => call.target.endsWith('/purge')), 'nothing is deleted yet')
+
+      button(driver.render(), '确认永久删除 2 项').props.onClick()
+      await tick()
+
+      const purge = driver.calls.find((call) => call.target.endsWith('/purge'))
+      assert.ok(purge !== undefined, 'the second click issues the purge')
+      assert.deepEqual([...purge.body.sessionIds].sort(), ['session-a', 'session-b'])
+      assert.ok(dump(driver.render()).includes('已永久删除 2 项'))
+    } finally {
+      driver.restore()
+    }
+  })
+
+  it('restores the selection', async () => {
+    const driver = await openPanel()
+    try {
+      const checkbox = find(driver.render(), (element) => element.props?.type === 'checkbox')
+      checkbox.props.onChange()
+      await tick()
+
+      button(driver.render(), '恢复').props.onClick()
+      await tick()
+
+      const restore = driver.calls.find((call) => call.target.endsWith('/restore'))
+      assert.ok(restore !== undefined)
+      assert.deepEqual(restore.body.sessionIds, ['session-a'])
+      assert.ok(dump(driver.render()).includes('已恢复 1 项'))
+    } finally {
+      driver.restore()
+    }
+  })
+
+  it('empties the whole trash behind a confirmation', async () => {
+    const driver = await openPanel()
+    try {
+      button(driver.render(), '清空回收站').props.onClick()
+      await tick()
+      assert.ok(dump(driver.render()).includes('确认清空 2 项'))
+      assert.ok(!driver.calls.some((call) => call.target.endsWith('/empty')))
+
+      button(driver.render(), '确认清空 2 项').props.onClick()
+      await tick()
+      assert.ok(driver.calls.some((call) => call.target.endsWith('/empty')))
+      assert.ok(dump(driver.render()).includes('回收站已清空'))
+    } finally {
+      driver.restore()
+    }
+  })
+
+  it('reports a host failure instead of pretending it worked', async () => {
+    const driver = await openPanel()
+    try {
+      const originalFetch = globalThis.fetch
+      globalThis.fetch = async (url) => {
+        if (String(url).endsWith('/purge')) {
+          return { ok: false, status: 500, json: async () => ({ ok: false, error: { message: 'disk on fire' } }) }
+        }
+        return { ok: true, status: 200, json: async () => ({ ok: true, value: {} }) }
+      }
+      try {
+        button(driver.render(), '全选').props.onClick()
+        await tick()
+        button(driver.render(), '永久删除').props.onClick()
+        await tick()
+        button(driver.render(), '确认永久删除 2 项').props.onClick()
+        await tick()
+        assert.ok(dump(driver.render()).includes('disk on fire'))
+      } finally {
+        globalThis.fetch = originalFetch
+      }
+    } finally {
+      driver.restore()
+    }
+  })
+})
+
 describe('i18n', () => {
   it('registers one namespace with matching zh/en key sets', () => {
-    const { locale } = mountInstance({ locale: 'zh' })
-    const byLocale = locale.dictionaries.get('deleteChat')
-    assert.ok(byLocale !== undefined, 'the dictionaries must be registered under the plugin namespace')
-    assert.deepEqual(Object.keys(byLocale.zh).sort(), Object.keys(byLocale.en).sort(), 'key sets must match')
-    assert.equal(byLocale.zh.menu, '删除会话')
-    assert.equal(byLocale.en.menu, 'Delete chat')
-    assert.equal(byLocale.en.confirm, 'Delete permanently')
-  })
-
-  it('follows the active language on the row and the open dialog', () => {
-    const { menu, dialog, locale } = mountInstance({ locale: 'zh' })
-
-    const zhRow = menu({ sessionId: 'session-1', displayTitle: 'demo' })
-    assert.equal(zhRow.args[2].args[2], '删除会话')
-
-    locale.setLocale('en')
-    const enRow = menu({ sessionId: 'session-1', displayTitle: 'demo' })
-    assert.equal(enRow.args[2].args[2], 'Delete chat', 'the row must re-read the active language')
-
-    const originalFetch = globalThis.fetch
-    globalThis.fetch = () => Promise.reject(new Error('offline'))
+    const driver = mount()
     try {
-      enRow.args[1].onSelect()
-      const rendered = JSON.stringify(dialog())
-      assert.ok(rendered.includes('Delete permanently'), 'the confirm button must be English')
-      assert.ok(rendered.includes('This conversation leaves every list'), 'the body must be English')
-      assert.ok(!rendered.includes('永久删除'), 'no Chinese must survive the switch')
-      assert.ok(!rendered.includes('该会话将从列表中移除'), 'no Chinese body must survive either')
+      const byLocale = driver.locale.dictionaries.get('deleteChat')
+      assert.ok(byLocale !== undefined)
+      assert.deepEqual(Object.keys(byLocale.zh).sort(), Object.keys(byLocale.en).sort())
+      assert.equal(byLocale.zh.menu, '删除会话')
+      assert.equal(byLocale.en.menuTrash, 'Trash')
     } finally {
-      globalThis.fetch = originalFetch
+      driver.restore()
     }
   })
 
-  it('falls back to a non-empty label when the host exposes no locale service', () => {
-    const { menu } = mountInstance({ withService: false })
-    const row = menu({ sessionId: 'session-1', displayTitle: 'demo' })
-    const label = row.args[2].args[2]
-    assert.ok(typeof label === 'string' && label.length > 0, 'a label must render without the service')
-    assert.ok(!label.startsWith('deleteChat.'), 'a missing service must not leak the raw key')
-  })
-})
-
-/** The status row must state what actually happened, not a blanket success. */
-describe('report status', () => {
-
-  /**
-   * Drive one full delete flow against a stubbed host, then serialise the outcome.
-   * @param report - the host report the stub returns.
-   * @param locale - active language id.
-   * @returns the rendered dialog as JSON.
-   */
-  async function renderOutcome(report, locale = 'zh') {
-    const originalFetch = globalThis.fetch
-    globalThis.fetch = async () => ({ ok: true, status: 200, json: async () => ({ ok: true, value: report }) })
+  it('follows the active language on the rows and the panel', async () => {
+    const driver = mount({ locale: 'zh' })
     try {
-      const { menu, dialog } = mountInstance({ locale })
-      const row = menu({ sessionId: 'session-1', displayTitle: 'demo' })
-      row.args[1].onSelect()
-      await new Promise((resolve) => setTimeout(resolve, 0))
+      assert.ok(textOf(menuRows(driver)[0]).includes('删除会话'))
 
-      /** First rendered button carrying the solid danger fill is the confirm one. */
-      const findConfirm = (node) => {
-        const tree = flatten(node)
-        if (tree === null || tree === undefined || typeof tree !== 'object') return undefined
-        if (tree.type === 'button' && tree.props?.style?.background === '#c93b3b') return tree
-        for (const child of tree.children ?? []) {
-          const found = findConfirm(child)
-          if (found !== undefined) return found
-        }
-        return undefined
-      }
+      driver.locale.setLocale('en')
+      const rows = menuRows(driver)
+      assert.ok(textOf(rows[0]).includes('Delete chat'))
+      assert.ok(textOf(rows[1]).includes('Trash'))
 
-      const confirm = findConfirm(dialog())
-      assert.ok(confirm !== undefined, 'the confirm button must render')
-      confirm.props.onClick()
-      await new Promise((resolve) => setTimeout(resolve, 0))
-      return JSON.stringify(flatten(dialog()))
-    } finally {
-      globalThis.fetch = originalFetch
-    }
-  }
-
-  const CASES = [
-    {
-      name: 'a completed deletion',
-      report: {
-        deleted: true,
-        archived: 'ok',
-        removedDirectories: ['/tmp/a'],
-        freedBytes: 4096,
-        workspaceAccounting: { workspaces: 1, archived: 0, pinned: 0 },
-        projectionCacheRemoved: 1,
-        failures: [],
-      },
-      zh: '已删除',
-      en: 'Deleted',
-    },
-    {
-      name: 'a partial deletion',
-      report: {
-        deleted: false,
-        archived: 'failed: busy',
-        removedDirectories: ['/tmp/a'],
-        freedBytes: 4096,
-        workspaceAccounting: null,
-        projectionCacheRemoved: 0,
-        failures: [{ path: '/tmp/b', error: 'EPERM' }],
-      },
-      zh: '部分完成',
-      en: 'partially deleted',
-    },
-    {
-      name: 'nothing on disk',
-      report: {
-        deleted: false,
-        archived: 'skipped',
-        removedDirectories: [],
-        freedBytes: 0,
-        workspaceAccounting: null,
-        projectionCacheRemoved: 0,
-        failures: [],
-      },
-      zh: '未找到可删除内容',
-      en: 'nothing to delete',
-    },
-  ]
-
-  for (const testCase of CASES) {
-    it(`reports ${testCase.name} in zh`, async () => {
-      const rendered = await renderOutcome(testCase.report, 'zh')
-      assert.ok(rendered.includes(testCase.zh), `expected "${testCase.zh}" in the report`)
-    })
-    it(`reports ${testCase.name} in en`, async () => {
-      const rendered = await renderOutcome(testCase.report, 'en')
-      assert.ok(rendered.includes(testCase.en), `expected "${testCase.en}" in the report`)
-    })
-  }
-
-  it('names the failing path and reason when part of the run failed', async () => {
-    const rendered = await renderOutcome(CASES[1].report, 'zh')
-    assert.ok(rendered.includes('/tmp/b'), 'the failing path must be named')
-    assert.ok(rendered.includes('EPERM'), 'the failure reason must be named')
-  })
-})
-
-/** A failed run must be recoverable from the dialog itself. */
-describe('failure recovery', () => {
-  const FAILED = {
-    deleted: false,
-    archived: 'failed: busy',
-    removedDirectories: ['/tmp/a'],
-    freedBytes: 4096,
-    workspaceAccounting: null,
-    projectionCacheRemoved: 0,
-    failures: [{ path: '/tmp/b', error: 'EPERM' }],
-  }
-  const CLEAN = {
-    deleted: true,
-    archived: 'ok',
-    removedDirectories: ['/tmp/a', '/tmp/b'],
-    freedBytes: 8192,
-    workspaceAccounting: { workspaces: 1, archived: 0, pinned: 0 },
-    projectionCacheRemoved: 1,
-    failures: [],
-  }
-
-  /**
-   * Open one flow whose host answers each delete call with the next report.
-   * @param reports - successive delete reports.
-   * @param locale - active language id.
-   * @returns the dialog driver: `click`, `render`, `deletes`, `restore`.
-   */
-  async function openFlow(reports, locale = 'zh') {
-    const originalFetch = globalThis.fetch
-    const deletes = []
-    globalThis.fetch = async (url, init) => {
-      const target = String(url)
-      const body = JSON.parse(init?.body ?? '{}')
-      let value
-      if (target.endsWith('/delete')) {
-        value = reports[Math.min(deletes.length, reports.length - 1)]
-        deletes.push(body)
-      } else {
-        value = reports[0]
-      }
-      return { ok: true, status: 200, json: async () => ({ ok: true, value }) }
-    }
-    const { menu, dialog } = mountInstance({ locale })
-    const row = menu({ sessionId: 'session-9', displayTitle: 'demo' })
-    row.args[1].onSelect()
-    await tick()
-
-    /** Click the button carrying `label` and let the flow settle. */
-    const click = async (label) => {
-      const button = findButton(flatten(dialog()), label)
-      if (button === undefined) throw new Error(`no button labelled "${label}"`)
-      button.props.onClick()
+      rows[1].props.onSelect()
       await tick()
-    }
-
-    return {
-      click,
-      render: () => JSON.stringify(flatten(dialog())),
-      deletes,
-      restore: () => {
-        globalThis.fetch = originalFetch
-      },
-    }
-  }
-
-  it('offers retry, a copy action and a CLI fallback after a partial run', async () => {
-    const flow = await openFlow([FAILED])
-    try {
-      await flow.click('永久删除')
-      const rendered = flow.render()
-      assert.ok(rendered.includes('部分完成'), 'the status must say partial')
-      assert.ok(rendered.includes('重试'), 'a retry button must be offered')
-      assert.ok(rendered.includes('复制失败详情'), 'the report must be copyable')
-      assert.ok(
-        rendered.includes('dsh-delete-chat --yes session-9'),
-        'the hint must name the exact CLI command for this session',
-      )
+      const tree = driver.render()
+      assert.ok(dump(tree).includes('Select all'))
+      assert.ok(!dump(tree).includes('全选'))
     } finally {
-      flow.restore()
+      driver.restore()
     }
   })
 
-  it('retries against the host and lands on the clean report', async () => {
-    const flow = await openFlow([FAILED, CLEAN])
+  it('falls back to a real label when the host exposes no locale service', () => {
+    const driver = mount({ withService: false })
     try {
-      await flow.click('永久删除')
-      await flow.click('重试')
-      const rendered = flow.render()
-      assert.equal(flow.deletes.length, 2, 'the retry must hit the host again')
-      assert.ok(rendered.includes('已删除'), 'the second run reports success')
-      assert.ok(!rendered.includes('重试'), 'no retry is offered once nothing failed')
+      const label = textOf(menuRows(driver)[0])
+      assert.ok(label.length > 0)
+      assert.ok(!label.includes('deleteChat.'), 'a missing service must not leak the raw key')
     } finally {
-      flow.restore()
-    }
-  })
-
-  it('keeps the failure list visible on the retry, so the second attempt is not blind', async () => {
-    const flow = await openFlow([FAILED, FAILED])
-    try {
-      await flow.click('永久删除')
-      await flow.click('重试')
-      const rendered = flow.render()
-      assert.ok(rendered.includes('/tmp/b'), 'the failing path stays listed')
-      assert.ok(rendered.includes('EPERM'), 'the reason stays listed')
-    } finally {
-      flow.restore()
-    }
-  })
-
-  it('hides the recovery affordances when nothing failed', async () => {
-    const flow = await openFlow([CLEAN])
-    try {
-      await flow.click('永久删除')
-      const rendered = flow.render()
-      assert.ok(!rendered.includes('重试'))
-      assert.ok(!rendered.includes('复制失败详情'))
-      assert.ok(rendered.includes('已删除'))
-    } finally {
-      flow.restore()
+      driver.restore()
     }
   })
 })

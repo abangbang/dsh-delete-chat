@@ -3,6 +3,35 @@
 本文件记录所有值得注意的改动。格式参照 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [SemVer](https://semver.org/lang/zh-CN/)。
 
+## [0.2.0] — 2026-10-29
+
+### Changed
+
+- **删除会话不再永久删除**：改为**软删除**——归档 → 把目录 `rename` 进 `~/.dsh/session-trash/<project>/<id>/`
+  → 摘工作区记账 → 写回收站清单。同卷 rename，瞬时可逆，不复制一个字节；跨卷时退回复制 + 删除（`EXDEV`）。
+- 会话行「⋯」菜单变成两行：**删除会话**（危险红）与**回收站**。永久删除只存在于回收站里。
+
+### Added
+
+- **回收站面板**：筛选（标题 / 目录 / 项目）、多选、全选、已选计数，以及
+  **恢复 / 永久删除 / 一键清空**。两个破坏性动作第一次点击只是上膛（按钮变成「确认永久删除 N 项」），
+  第二次才真删；结果行给出恢复/删除条数、释放空间和失败数。
+- 宿主接口从 `{list,preview,delete}` 扩到 `{trash,trashList,restore,purge,empty}`，
+  `delete` 作为一次性永久删除保留给脚本。
+- `restore` 把目录搬回原位、重新写 `workspace.json`，并在注册表支持时用 `insertSessionBefore`
+  让行立刻回到侧栏（否则下次启动出现）。
+- 回收站清单 `session-trash/index.json` 记住标题、cwd、大小、删除时间；列表以目录树为准：
+  清单没有的目录也列出，清单有而目录没了的报成 `missing`。
+- CLI 补齐 `--trash` / `--trash-list` / `--restore` / `--purge --yes` / `--empty --yes`；
+  永久动作不加 `--yes` 一律拒绝。
+- `test/trash.test.mjs`：15 项覆盖软删、清单、恢复、批量永久删除、清空、幂等与未知 id。
+  客户端测试重写为驱动真实组件（假 React + 扁平化渲染），覆盖两行菜单、软删弹窗、面板筛选、
+  多选上膛、恢复、清空、宿主失败上报。
+
+### Fixed
+
+- 面板/弹窗的渲染树里嵌套数组（`rows.map(...)`）不会被文本断言漏掉。
+- 恢复时 `workspace.json` 的 `sessionIds` 去重，避免与实时投影插入重复。
 ## [0.1.0] — 2026-10-29
 
 首个公开发布。

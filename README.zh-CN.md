@@ -28,12 +28,12 @@ DSH 的两处官方文档自己写明了缺口：
 
 | | |
 |---|---|
-| **会话行菜单** | 「⋯」→ 删除会话，垃圾桶图标 + 危险红，悬停淡红底 |
-| **跟随语言** | 文案读宿主语言（zh / en），切换后菜单行与已打开的弹窗都即时重渲染 |
-| **确认弹窗** | 标题、磁盘占用、目录数；执行后逐项报告结果 |
-| **真删** | 归档（停掉在跑的回合）→ 递归删目录 → 原子改写 `workspace.json`（留备份）→ 清投影缓存 |
+| **软删除** | 会话行「⋯」→ 删除会话，把目录移进 `~/.dsh/session-trash`——同卷 rename，不复制、不丢字节 |
+| **回收站面板** | 同一个菜单 → 回收站：筛选、多选、恢复、永久删除、一键清空 |
+| **不容易误删** | 「永久删除」只存在于回收站里，而且要点第二次才生效 |
+| **跟随语言** | 文案读宿主语言（zh / en），菜单行、弹窗、面板都即时重渲染 |
 | **两种布局** | 分项目 `<root>/<project>/session-<uuid>/` 与平铺 `<root>/session-<uuid>/` |
-| **命令行兜底** | `dsh-delete-chat --list / --preview / --yes`，界面没挂上也能删 |
+| **命令行** | `--trash` / `--trash-list` / `--restore` / `--purge --yes` / `--empty --yes`，界面没挂上也能用 |
 | **可选自托管索引** | 仓库自带 format 1 市场索引，加进 DSH 的「索引源」就是一个私有市场 |
 
 ## 安装
@@ -93,70 +93,84 @@ git clone https://github.com/YOUR_GITHUB_USER/dsh-delete-chat.git \
 
 ## 用法
 
-侧栏会话行 → **「⋯」→ 删除会话** → 确认。
-
-弹窗里会先显示磁盘占用，删除后显示：
+**删除**——会话行 → **「⋯」→ 删除会话** → 确认。行从列表消失、在跑的回合被停，目录移进回收站：
 
 ```
-状态        已删除
-归档        已归档并停止运行中的工作
-删除目录     1 个
-释放空间     274.4 KB
-工作区记账    移除 3 条引用
-投影缓存     1 项
+状态      已移入回收站
+归档      已归档并停止运行中的工作
+占用空间   274.4 KB
+回收站位置  ~/.dsh/session-trash/--proj--/session-…
 ```
+
+什么都不会丢：这是一次 rename，在你动手之前一直可逆。
+
+**回收站**——会话行 → **「⋯」→ 回收站**。面板列出每个被删的会话，带大小、项目、删除时间：
+
+- **筛选**：按标题、目录或项目名过滤；
+- **多选**：单条勾选或全选，底部显示已选数量；
+- **恢复**：目录搬回原位、重新记账、取消归档；
+- **永久删除 / 清空回收站**：第一次点击只是**上膛**（按钮变成「确认永久删除 N 项」），第二次才真删。
 
 ### 命令行
 
 ```bash
-dsh-delete-chat --list                    # 列全部会话（大小 / 归档 / 置顶 / 存活）
-dsh-delete-chat --preview session-<uuid>  # 只看，不动
-dsh-delete-chat --yes session-<uuid>      # 真删
-dsh-delete-chat --home D:\other\.dsh --list
+dsh-delete-chat --list                     # 磁盘上的会话 + 回收站数量
+dsh-delete-chat --trash-list               # 回收站里有什么
+dsh-delete-chat --trash session-<uuid>     # 软删除
+dsh-delete-chat --restore session-<uuid>   # 恢复
+dsh-delete-chat --purge session-<uuid> --yes
+dsh-delete-chat --empty --yes
+dsh-delete-chat --preview session-<uuid>
 ```
 
-不带 `--yes` 只打印预览并以 `1` 退出。
+永久删除不加 `--yes` 会拒绝执行；软删除不需要，因为它可逆。
 
 ## 工作原理
 
-一次删除，四个动作，顺序固定：
+### 移入回收站
 
 | 步骤 | 动作 | 为什么是这个顺序 |
 |---|---|---|
-| 1 | `archiveSession(id, { stopActivity: true })` | 立刻从所有分组界面隐藏、停掉在跑的回合、`ArchivedSessionGate` 拦住后续唤醒——文件消失期间不会有东西把行顶回来 |
-| 2 | 递归删 `<sessions-root>/…/session-<uuid>/` | 连同 `session.v4.jsonl.zstd` |
-| 3 | 改写 `storages/workspace.json` | 摘掉 `sessionIds` / `archivedSessionIds` / `pinnedSessionIds`；写临时文件 + 原子 rename，原件留 `.bak-<时间戳>` |
-| 4 | 清 `storages/session_projcache/<id>.*` | 不清会在搜索里留下点不开的记录 |
+| 1 | `archiveSession(id, { stopActivity: true })` | 立刻从所有界面隐藏、停掉在跑的回合、`ArchivedSessionGate` 拦住后续唤醒 |
+| 2 | `rename` `<sessions-root>/…/session-<uuid>/` → `<home>/session-trash/<project>/session-<uuid>/` | 同卷所以是瞬时原子操作；根在另一个卷时退回复制 + 删除（`EXDEV`） |
+| 3 | 改写 `storages/workspace.json` | 从 `sessionIds` 摘掉，侧栏行不会自己冒回来；留 `.bak-<时间戳>` |
+| 4 | 追加 `<home>/session-trash/index.json` | 记住标题、cwd、大小、删除时间，不用解一帧 zstd |
 
-第 1 步失败不算失败（不在工作区记账里的会话也照删），报告里如实写明。
+### 回收站的布局
+
+```
+~/.dsh/
+├── sessions/                      # 活着的会话
+│   └── <project>/session-<uuid>/
+└── session-trash/                 # 你删掉的一切
+    ├── index.json                 # 标题、cwd、大小、时间
+    └── <project>/session-<uuid>/  # 目录原样保留
+```
+
+目录树才是真相：清单里没有的目录也会被列出（标题先用 id），清单里有但目录没了的行会被报成 missing，而不是假装还在。
+
+恢复会把第 2–3 步反过来，并在注册表支持时用 `insertSessionBefore` 让行立刻回到侧栏。永久删除——只能从回收站里发起——才真正 unlink 目录、删清单行、清投影缓存。
 
 ### 接口
 
-`POST /delete-chat/api/{list,preview,delete}`，走宿主自己的 `connection.requestRejection` 同源围栏。
-`sessionId` 必须以 `session-` 开头且只含 `[0-9A-Za-z._-]`——它在到达 `join()`/`rm()` 之前就被校验，
-`../`、盘符、分隔符不可能成为路径段。
+`POST /delete-chat/api/{trash,trashList,restore,purge,empty}`，外加 `{list,preview,delete}`（`delete` 是一次性永久删除，留给脚本）。全部走宿主自己的 `connection.requestRejection` 同源围栏，`sessionId` 在到达 `join()`/`rm()` 之前就过白名单。
 
 ## 删失败了怎么办
 
-这里没有事务：一次删除要动运行中的宿主、一棵目录树、一个 JSON 存储。报告会说清是哪一环拒绝的，每种失败都有出路。
-
-| 失败在哪 | 弹窗显示 | 实际状态 |
+| 失败在哪 | 你会看到 | 实际状态 |
 |---|---|---|
-| `POST /delete-chat/api/delete` 本身失败 | 进入 `error` 阶段、红框、会话原封不动 | 什么都没写 |
-| 某个目录删不掉（文件被占用、权限、OneDrive 同步中） | 状态**部分完成**，红底列路径 + 原因 | 其它路径已删；该行已归档 |
-| `workspace.json` 改写失败 | 状态**部分完成**，列出存储路径，`.bak-<时间戳>` 保留 | 文件已删；陈旧引用会在下次启动时被重建时丢掉 |
-| 某个投影缓存条目删不掉 | 状态**部分完成**，列出那一条缓存路径 | 会话日志已经没了，只剩一个可丢弃的缓存文件 |
+| 宿主调用本身失败 | 弹窗进入 `error` 阶段、红框 | 什么都没写 |
+| 目录搬不动（Windows 上被别的进程占着） | 弹窗报错带 `EBUSY`/`EPERM` | 归档已经生效；目录还在 sessions 根里，取消归档就回来了 |
+| 搬成功了但 `workspace.json` 改写失败 | 回收站里有这条，侧栏可能还留着 | 文件在回收站里安全；恢复它，或手动清掉那条陈旧引用 |
+| 永久删除 unlink 失败 | 面板列出路径 + 原因，并显示「N 项失败」 | 其它选中项已删；失败那条仍在列表里 |
+| 恢复搬不回去 | 「N 项失败」带路径 | 目录还在回收站，没有半途而废的中间态 |
 
-按顺序试这些：
+按顺序试：
 
-1. **重试**——报告里有失败时，弹窗会多出「重试」按钮。操作是幂等的：再归档一次（无操作）、再删剩下的、再摘一次引用。
-2. **复制失败详情**——导出一份机器可读的报告，贴进 issue 正好。
-3. **命令行兜底**——弹窗底部直接给出这条命令。**先退出 DSH**：挡住目录的锁通常就是宿主自己的写句柄。
-   ```bash
-   dsh-delete-chat --yes session-<uuid>
-   ```
+1. **恢复**——回收站里的任何一条都能一键回来，这就是它的意义。
+2. **重试**——弹窗和面板都是幂等的：排除原因（关掉占用、退出同步盘）后再点一次。
+3. **命令行兜底**——先退出 DSH，占住目录的锁通常就是宿主自己的句柄。`dsh-delete-chat --trash | --restore | --purge --yes`。
 4. **回滚存储**——每次改写都在旁边留了 `workspace.json.bak-<时间戳>`。
-5. **把会话找回来**——如果文件还在（只有目录那步失败），归档是可逆的：取消归档，会话就回到列表。
 
 ## 平台支持
 
@@ -164,32 +178,32 @@ dsh-delete-chat --home D:\other\.dsh --list
 |---|---|---|---|
 | 插件本体（宿主 + 客户端两半） | ✅ 本地实测 | ✅ CI `macos-latest` | ✅ CI `ubuntu-latest` |
 | 安装器（`scripts/install.mjs` + 两个封装） | ✅ 本地实测 | ✅ 同一套测试 | ✅ 同一套测试 |
-| 目录被别的进程占着 | 拒绝（`EBUSY`）→ 如实报告 + 给重试 | 直接删掉（POSIX `unlink`） | 直接删掉（POSIX `unlink`） |
+| 目录被别的进程占着 | 拒绝（`EBUSY`）→ 如实报告 + 给兜底命令 | 直接搬走（POSIX `unlink`） | 直接搬走（POSIX `unlink`） |
 | sessions 根经过符号链接（macOS `tmpdir` 的形态） | 不适用 | ✅ 已覆盖 | ✅ 已覆盖 |
 | 路径推导 | 盘符根 | POSIX 根 | POSIX 根 |
 
-Windows 与 POSIX 的断言写在同一个文件（`test/platform.test.mjs`）里，且互斥：不属于当前系统的分支会**带原因跳过**，所以一个系统上跑绿不能冒充另一个系统也绿。`npm test` 共 71 项。
+Windows 与 POSIX 的断言写在同一个文件（`test/platform.test.mjs`）里，且互斥：不属于当前系统的分支会**带原因跳过**，所以一个系统上跑绿不能冒充另一个系统也绿。`npm test` 共 80 项。
 
-用户真正会碰到的平台差异只有第三行：Windows 上被别的进程占着的目录删不掉，插件会报 `EBUSY`、给「重试」、并打印命令行兜底——退出 DSH 后 `dsh-delete-chat --yes <id>`；macOS 和 Linux 上同一次删除直接成功。
+用户真正会碰到的平台差异只有第三行：Windows 上被别的进程占着的目录搬不动，弹窗会报 `EBUSY`，兜底命令是退出 DSH 后 `dsh-delete-chat --trash <id>`；macOS 和 Linux 上同一次搬动直接成功。
 
 ## 已知边界
 
-- **不级联**：被删会话的子代理会话、分叉子会话不会跟着删，它们的 `parent_session` 会悬空。
-- **附件不动**：`~/.dsh/attachments/v1/objects` 是内容寻址、跨会话共享的，删会话不能连带删对象。
-- **内存对象残留**：宿主 `sessions` 服务只暴露 `create`/`get`/`list`，没有 dispose；归档后该对象已不跑
-  任何模型步，重启即消失。
-- **`workspace.json` 可能被宿主回写一次**：归档集合仍生效（行依旧隐藏），重启后彻底干净。
+- **回收站不是系统回收站**：它在 `<DSH home>/session-trash`，手动删掉这个目录等于绕过所有确认的永久删除。
+- **恢复可能要重启**：注册表暴露 `insertSessionBefore` 时行会立刻回来；没有这个动作时目录已经恢复，行要等下次启动才出现。
+- **不级联**：被删会话的子代理与分叉子会话各自独立存在，它们的 `parent_session` 会悬空。
+- **附件不动**：`~/.dsh/attachments/v1/objects` 是内容寻址、跨会话共享的，软删和永久删都不动别的会话还在引用的对象。
+- **内存对象残留**：`sessions` 服务只暴露 `create`/`get`/`list`，所以被移入回收站的会话对象要到重启才消失；归档期间它不跑任何模型步。
 
 ## 开发
 
 ```bash
-npm test                 # 30 项：宿主逻辑 / HTTP 信封 / 客户端 bundle 契约
-npm run pack             # 产出 release/dsh-delete-chat-<version>.tgz
+npm test                 # 80 项：宿主逻辑、回收站、HTTP、客户端、平台矩阵、安装器
+npm run pack             # release/dsh-delete-chat-<version>.tgz
 npm run market-index     # 用当前 HEAD 重新生成 market/index.json
-npm run rename-owner --  <github-user> [display-name]   # 一次性替换占位符
+npm run rename-owner --  <github-user> [display-name]
 ```
 
-三条测试都跑在 `mkdtemp` 出来的假 DSH home 与假 ctx 上，不需要 DSH 在跑，也不碰真实数据。
+所有测试都跑在 `mkdtemp` 出来的假 DSH home 与假 ctx 上，不需要 DSH 在跑，也不碰真实数据。客户端那套用假 React 真渲染组件，断言读的是用户能看到的文字。
 
 ## 许可
 
