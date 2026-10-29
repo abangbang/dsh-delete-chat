@@ -56,6 +56,20 @@ dsh plugin --profile <你的profile> add https://github.com/YOUR_GITHUB_USER/dsh
 
 官方桌面端的 profile 归应用自己的插件管理器所有，请用应用内的 **设置 → 插件** 安装。
 
+### 脚本（任意系统）
+
+```bash
+node scripts/install.mjs                  # 装进 ~/.dsh/profiles/desktop
+node scripts/install.mjs --profile <dir>  # 指定 profile
+node scripts/install.mjs --dry-run        # 只打印补丁差异，不写盘
+node scripts/install.mjs --uninstall      # 卸载并删掉包副本
+
+./install.sh                              # macOS / Linux 封装
+.\install.ps1                             # Windows 封装（支持 -Uninstall / -DryRun）
+```
+
+两个封装只翻译开关——安装器本身是一份 Node 脚本，三个系统跑的是同一套代码；它还会清掉改名前的挂载（`dsh-session-delete`），升级过的人不会变成双挂。
+
 ### 手动挂载
 
 ```bash
@@ -143,6 +157,20 @@ dsh-delete-chat --home D:\other\.dsh --list
    ```
 4. **回滚存储**——每次改写都在旁边留了 `workspace.json.bak-<时间戳>`。
 5. **把会话找回来**——如果文件还在（只有目录那步失败），归档是可逆的：取消归档，会话就回到列表。
+
+## 平台支持
+
+| | Windows | macOS | Linux |
+|---|---|---|---|
+| 插件本体（宿主 + 客户端两半） | ✅ 本地实测 | ✅ CI `macos-latest` | ✅ CI `ubuntu-latest` |
+| 安装器（`scripts/install.mjs` + 两个封装） | ✅ 本地实测 | ✅ 同一套测试 | ✅ 同一套测试 |
+| 目录被别的进程占着 | 拒绝（`EBUSY`）→ 如实报告 + 给重试 | 直接删掉（POSIX `unlink`） | 直接删掉（POSIX `unlink`） |
+| sessions 根经过符号链接（macOS `tmpdir` 的形态） | 不适用 | ✅ 已覆盖 | ✅ 已覆盖 |
+| 路径推导 | 盘符根 | POSIX 根 | POSIX 根 |
+
+Windows 与 POSIX 的断言写在同一个文件（`test/platform.test.mjs`）里，且互斥：不属于当前系统的分支会**带原因跳过**，所以一个系统上跑绿不能冒充另一个系统也绿。`npm test` 共 71 项。
+
+用户真正会碰到的平台差异只有第三行：Windows 上被别的进程占着的目录删不掉，插件会报 `EBUSY`、给「重试」、并打印命令行兜底——退出 DSH 后 `dsh-delete-chat --yes <id>`；macOS 和 Linux 上同一次删除直接成功。
 
 ## 已知边界
 

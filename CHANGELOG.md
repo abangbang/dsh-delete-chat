@@ -18,10 +18,16 @@
   `sessionId` 在成为路径段之前过白名单。
 - 删除流水线：`archiveSession(stopActivity)` → 递归删目录（兼容平铺与分项目两种布局）
   → 原子改写 `workspace.json`（留 `.bak-<时间戳>`）→ 清 `session_projcache`。
+- **跨平台安装器**：`scripts/install.mjs` 一份 Node 实现（幂等、`--dry-run`、会清掉改名前的挂载），
+  `install.ps1` / `install.sh` 退化为只翻译开关的薄封装；macOS 不必再照着 README 手改 YAML。
+- **平台矩阵**：新增 `test/platform.test.mjs`（路径推导、id 白名单、被占用的目录、符号链接根）
+  与 `test/install.test.mjs`（装 / 重装 / 卸载 / 干跑 / 拒绝非 profile 目录）；
+  CI 矩阵扩到 ubuntu + macOS + Windows × Node 20/22/24，并真解析 `install.ps1` / `bash -n install.sh`。
+- **修正**：sessions 根不是 `.../sessions` 时，`dshHomeOf` 不再猜父目录，改读 `DSH_HOME`（否则会写一份没人加载的 `workspace.json`）。
 - 命令行兜底 `dsh-delete-chat` / `bin/delete-chat.mjs`：`--list` / `--preview` / `--yes` / `--home`。
 - 结果报告的**状态行如实反映结果**：完整删除 / 部分完成 / 未找到可删除内容，不再一律写「已删除」。
 - 失败可恢复：报告里出现失败时，弹窗多出**重试**、**复制失败详情**，并给出该会话的 CLI 兜底命令；投影缓存删不掉也会进失败列表（不再被静默吞掉，也不再谎报已清理）。
-- 44 项测试：宿主逻辑、HTTP 信封与围栏、客户端 bundle 契约、菜单外观、语言切换、结果报告、失败恢复。
+- 71 项测试：宿主逻辑、HTTP 信封与围栏、客户端 bundle 契约、菜单外观、语言切换、结果报告、失败恢复、平台矩阵、安装器。
 - `scripts/market-index.mjs` 生成 format 1 市场索引；`scripts/pack.mjs` 产出可分发的 `.tgz`。
 
 ### Known limitations

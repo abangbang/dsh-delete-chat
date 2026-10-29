@@ -26,13 +26,17 @@
     "README.md",
     "README.zh-CN.md",
     "CHANGELOG.md",
-    "LICENSE"
+    "LICENSE",
+    "install.ps1",
+    "install.sh",
+    "scripts/install.mjs"
   ],
   "scripts": {
-    "test": "node --test test/host.test.mjs test/http.test.mjs test/client.test.mjs",
+    "test": "node --test test/host.test.mjs test/http.test.mjs test/client.test.mjs test/platform.test.mjs test/install.test.mjs",
     "pack": "node scripts/pack.mjs",
     "market-index": "node scripts/market-index.mjs",
-    "rename-owner": "node scripts/rename-owner.mjs"
+    "rename-owner": "node scripts/rename-owner.mjs",
+    "install-plugin": "node scripts/install.mjs"
   },
   "keywords": [
     "dsh",

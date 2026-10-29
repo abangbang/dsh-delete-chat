@@ -62,6 +62,22 @@ dsh plugin --profile <your-profile> add https://github.com/YOUR_GITHUB_USER/dsh-
 On the official desktop app the profile belongs to the app's own plugin manager — install through
 **Settings → Plugins** instead.
 
+### Script (any OS)
+
+```bash
+node scripts/install.mjs                  # install into ~/.dsh/profiles/desktop
+node scripts/install.mjs --profile <dir>  # any profile
+node scripts/install.mjs --dry-run        # print the patch diff, write nothing
+node scripts/install.mjs --uninstall      # unmount + delete the package copy
+
+./install.sh                              # macOS / Linux wrapper
+.\install.ps1                             # Windows wrapper (also -Uninstall / -DryRun)
+```
+
+The wrappers only translate switches — the installer is one Node script, so all three OSes run the
+same code, and it strips the pre-rename mount (`dsh-session-delete`) so an upgraded profile never
+ends up with two.
+
 ### Manual mount
 
 ```bash
@@ -155,6 +171,25 @@ Recovery, in the order to try it:
 4. **Roll back the store** — every rewrite leaves `workspace.json.bak-<stamp>` next to it.
 5. **Bring the conversation back** — if the files survived (a directory-failure-only run), the
    archive is reversible: unarchive the session and it returns to its list.
+
+## Platform support
+
+| | Windows | macOS | Linux |
+|---|---|---|---|
+| Plugin runtime (host + client half) | ✅ verified locally | ✅ CI, `macos-latest` | ✅ CI, `ubuntu-latest` |
+| Installer (`scripts/install.mjs` + wrappers) | ✅ verified locally | ✅ same suite | ✅ same suite |
+| A directory another process holds | refused (`EBUSY`) → reported, retry offered | removed (POSIX `unlink`) | removed (POSIX `unlink`) |
+| Sessions root behind a symlink (macOS `tmpdir` shape) | n/a | ✅ covered | ✅ covered |
+| Path derivation | drive-letter roots | POSIX roots | POSIX roots |
+
+Windows and POSIX assertions live in one file (`test/platform.test.mjs`) and are mutually exclusive:
+the branch that does not belong to the running OS is skipped **with a reason**, so a green run on one
+platform never stands in for another. `npm test` is 71 tests.
+
+The only platform difference users actually hit is the middle row: on Windows a directory held open
+by another process cannot be removed, so the plugin reports `EBUSY`, offers *Retry*, and prints the
+CLI fallback — quit DSH, then `dsh-delete-chat --yes <id>`. On macOS and Linux that same deletion
+simply succeeds.
 
 ## Known limitations
 
