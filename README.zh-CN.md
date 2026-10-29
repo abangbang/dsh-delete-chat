@@ -42,12 +42,6 @@ DSH 自己的两个包就把这个缺口写在了文档里：
 | **命令行** | `--trash` / `--trash-list` / `--restore` / `--purge --yes` / `--empty --yes`，界面没挂上也能用 |
 | **自托管索引** | 自带 format 1 市场索引，加进 DSH 的「索引源」就是你的私有市场 |
 
-## 环境要求
-
-- **DSH 0.2.x**（对着 `0.2.1-rc.2` 开发）。占用四个席位：`sidebar.workspaces.session.menu.item`、
-  `main`、`sidebar.panellist`、`shell.overlay`
-- **Node 20+**：只有 CLI 和安装器需要；插件本身跑在宿主里
-
 ## 安装
 
 ### 从市场装
@@ -67,42 +61,6 @@ dsh plugin --profile <你的profile> add https://github.com/abangbang/dsh-delete
 ```
 
 官方桌面端的 profile 归应用自己的插件管理器所有，请用应用内 **设置 → 插件** 安装。
-
-### 用脚本装（任意系统）
-
-```bash
-node scripts/install.mjs                  # 装进 ~/.dsh/profiles/desktop
-node scripts/install.mjs --profile <dir>  # 指定 profile
-node scripts/install.mjs --dry-run        # 只打印补丁差异，不写盘
-node scripts/install.mjs --uninstall      # 卸载并删掉包副本
-
-./install.sh                              # macOS / Linux 封装
-.\install.ps1                             # Windows 封装（也支持 -Uninstall / -DryRun）
-```
-
-两个封装只翻译开关——安装器本身是一份 Node 脚本，三个系统跑同一套代码；它会顺手清掉改名前的
-旧挂载（`dsh-session-delete`），升级过的人不会变成双挂。
-
-### 手动挂载
-
-```bash
-git clone https://github.com/abangbang/dsh-delete-chat.git \
-  ~/.dsh/profiles/desktop/node_modules/dsh-delete-chat
-```
-
-然后在 profile 的 `cordis.patch.yml` 末尾追加：
-
-```yaml
-- insert:
-    - id: delete-chat
-      name: 'dsh-delete-chat'
-```
-
-**装完必须重启 DSH。** 插件树在启动时组装，客户端 bundle 也在启动时组合并带 `immutable`
-缓存头——刷新页面拿到的是旧包。
-
-> ⚠️ 不要双挂：用 `dsh plugin add` 装（它会读本包的 `dsh.bundle.patch` 自己插一行）之后，
-> 记得删掉手写的那行 `- insert:`。
 
 ## 用法
 
@@ -142,20 +100,6 @@ alpha 会话
 
 恢复的确认按钮是琥珀色，只有删除类才是红色——颜色在这里是语义，不是装饰。
 
-### 命令行
-
-```bash
-dsh-delete-chat --list                     # 磁盘上的会话 + 回收站数量
-dsh-delete-chat --trash-list               # 回收站里有什么
-dsh-delete-chat --trash session-<uuid>     # 软删除
-dsh-delete-chat --restore session-<uuid>   # 恢复
-dsh-delete-chat --purge session-<uuid> --yes
-dsh-delete-chat --empty --yes
-dsh-delete-chat --preview session-<uuid>
-```
-
-永久动作不加 `--yes` 一律拒绝；软动作不需要，因为它可逆。
-
 ## 工作原理
 
 ### 移入回收站
@@ -184,29 +128,6 @@ dsh-delete-chat --preview session-<uuid>
 恢复会把第 2–3 步反过来，并在注册表支持时用 `insertSessionBefore` 让行立刻回到侧栏。永久删除
 ——只能从回收站里发起——才真正 unlink 目录、删清单行、清投影缓存。
 
-### 为什么那一行自己画
-
-宿主渲染「全局面板」的行时是 `[glyph][title]` 两段：`glyph` 由 `sidebar.panellist` 的占位者决定，
-`title` 由宿主用注册时的 `label` 投影。也就是说，「名称之后」的位置不归占位者管，没法从 glyph 里
-追加一个数量。
-
-所以这一行把**图标、名称、数量**都画在 glyph 里，再用一条只作用于本行的规则隐藏宿主重复渲染的
-`title`：
-
-```css
-button[aria-label="回收站"] > span[aria-hidden="true"] + span,
-button[aria-label="Trash"]   > span[aria-hidden="true"] + span { display: none !important }
-```
-
-选择器只锚在两样自己控制的东西上——注册时给的确切 `aria-label`，以及宿主加在 glyph 上的
-`aria-hidden`——所以不会误伤别的行；`aria-label` 本身保留，读屏和轨道模式的 tooltip 仍是「回收站」。
-
-### 接口
-
-`POST /delete-chat/api/{trash,trashList,restore,purge,empty}`，外加 `{list,preview,delete}`
-（`delete` 是一次性永久删除，留给脚本）。全部走宿主自己的 `connection.requestRejection`
-同源围栏，`sessionId` 在到达 `join()`/`rm()` 之前就过白名单：`../`、盘符、分隔符都不可能成为路径段。
-
 ## 删失败了怎么办
 
 | 失败在哪 | 你会看到 | 实际状态 |
@@ -224,22 +145,6 @@ button[aria-label="Trash"]   > span[aria-hidden="true"] + span { display: none !
 3. **命令行兜底**——先退出 DSH，占住目录的锁通常就是宿主自己的句柄。`dsh-delete-chat --trash | --restore | --purge --yes`。
 4. **回滚存储**——每次改写都在旁边留了 `workspace.json.bak-<时间戳>`。
 
-## 平台支持
-
-| | Windows | macOS | Linux |
-|---|---|---|---|
-| 插件本体（宿主 + 客户端两半） | ✅ 本地实测 | ✅ CI `macos-latest` | ✅ CI `ubuntu-latest` |
-| 安装器（`scripts/install.mjs` + 两个封装） | ✅ 本地实测 | ✅ 同一套测试 | ✅ 同一套测试 |
-| 目录被别的进程占着 | 拒绝（`EBUSY`）→ 如实报告 | 直接搬走（POSIX `unlink`） | 直接搬走（POSIX `unlink`） |
-| sessions 根经过符号链接（macOS `tmpdir` 的形态） | 不适用 | ✅ 已覆盖 | ✅ 已覆盖 |
-| 路径推导 | 盘符根 | POSIX 根 | POSIX 根 |
-
-Windows 与 POSIX 的断言写在同一个文件（`test/platform.test.mjs`）里，且互斥：不属于当前系统的分支会
-**带原因跳过**，所以一个系统上跑绿不能冒充另一个系统也绿。
-
-用户真正会碰到的平台差异只有第三行：Windows 上被别的进程占着的目录搬不动，弹窗会报 `EBUSY`，
-兜底命令是退出 DSH 后 `dsh-delete-chat --trash <id>`；macOS 和 Linux 上同一次搬动直接成功。
-
 ## 已知边界
 
 - **回收站不是系统回收站**：它在 `<DSH home>/session-trash`，手动删掉这个目录等于绕过所有确认的永久删除。
@@ -247,17 +152,6 @@ Windows 与 POSIX 的断言写在同一个文件（`test/platform.test.mjs`）�
 - **不级联**：被删会话的子代理与分叉子会话各自独立存在，它们的 `parent_session` 会悬空。
 - **附件不动**：`~/.dsh/attachments/v1/objects` 是内容寻址、跨会话共享的，软删和永久删都不动别的会话还在引用的对象。
 - **内存对象残留**：`sessions` 服务只暴露 `create`/`get`/`list`，被移入回收站的会话对象要到重启才消失；归档期间它不跑任何模型步。
-
-## 开发
-
-```bash
-npm test                 # 88 项：宿主逻辑、回收站、HTTP、客户端、平台矩阵、安装器
-npm run pack             # release/dsh-delete-chat-<version>.tgz
-npm run market-index     # 用当前 HEAD 重新生成 market/index.json
-```
-
-所有测试都跑在 `mkdtemp` 出来的假 DSH home 与假 ctx 上，不需要 DSH 在跑，也不碰真实数据。客户端那套
-用假 React 真渲染组件，断言读的是用户能看到的文字。
 
 ## 许可
 
