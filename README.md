@@ -48,7 +48,7 @@ grows — this plugin is the scissors.
 Host → **Settings → Plugins → Discover → Index sources**, add:
 
 ```
-https://cdn.jsdelivr.net/gh/YOUR_GITHUB_USER/dsh-delete-chat@main/market/index.json
+https://cdn.jsdelivr.net/gh/abangbang/dsh-delete-chat@main/market/index.json
 ```
 
 (Icon paths in the index are relative; jsDelivr serves the whole repo as a static site, so they
@@ -57,7 +57,7 @@ resolve.)
 ### Command line
 
 ```bash
-dsh plugin --profile <your-profile> add https://github.com/YOUR_GITHUB_USER/dsh-delete-chat/archive/refs/heads/main.tar.gz
+dsh plugin --profile <your-profile> add https://github.com/abangbang/dsh-delete-chat/archive/refs/heads/main.tar.gz
 ```
 
 On the official desktop app the profile belongs to the app's own plugin manager — install through
@@ -82,7 +82,7 @@ ends up with two.
 ### Manual mount
 
 ```bash
-git clone https://github.com/YOUR_GITHUB_USER/dsh-delete-chat.git \
+git clone https://github.com/abangbang/dsh-delete-chat.git \
   ~/.dsh/profiles/desktop/node_modules/dsh-delete-chat
 ```
 

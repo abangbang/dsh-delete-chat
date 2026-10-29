@@ -225,7 +225,7 @@ for (const group of ['categories', 'labels', 'sortKeys']) {
 }
 
 // Icon paths are relative to the index URL; validate against the deployment URL this repo uses.
-const indexUrl = 'https://cdn.jsdelivr.net/gh/YOUR_GITHUB_USER/dsh-delete-chat@main/market/index.json'
+const indexUrl = 'https://cdn.jsdelivr.net/gh/abangbang/dsh-delete-chat@main/market/index.json'
 
 if (!Array.isArray(document.plugins) || document.plugins.length === 0) {
   fail('$.plugins', 'must be a non-empty array')

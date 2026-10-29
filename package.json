@@ -50,13 +50,13 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/YOUR_GITHUB_USER/dsh-delete-chat.git"
+    "url": "git+https://github.com/abangbang/dsh-delete-chat.git"
   },
-  "homepage": "https://github.com/YOUR_GITHUB_USER/dsh-delete-chat#readme",
+  "homepage": "https://github.com/abangbang/dsh-delete-chat#readme",
   "bugs": {
-    "url": "https://github.com/YOUR_GITHUB_USER/dsh-delete-chat/issues"
+    "url": "https://github.com/abangbang/dsh-delete-chat/issues"
   },
-  "author": "YOUR_GITHUB_USER",
+  "author": "abangbang",
   "license": "MIT",
   "icon": "./icon.svg",
   "engines": {
@@ -77,9 +77,9 @@
     },
     "install": {
       "preferred": "tarball",
-      "tarball": "https://github.com/YOUR_GITHUB_USER/dsh-delete-chat/archive/refs/heads/main.tar.gz",
-      "zip": "https://github.com/YOUR_GITHUB_USER/dsh-delete-chat/archive/refs/heads/main.zip",
-      "git": "https://github.com/YOUR_GITHUB_USER/dsh-delete-chat.git"
+      "tarball": "https://github.com/abangbang/dsh-delete-chat/archive/refs/heads/main.tar.gz",
+      "zip": "https://github.com/abangbang/dsh-delete-chat/archive/refs/heads/main.zip",
+      "git": "https://github.com/abangbang/dsh-delete-chat.git"
     }
   },
   "peerDependencies": {

@@ -44,7 +44,7 @@ DSH 的两处官方文档自己写明了缺口：
 宿主 **设置 → 插件 → 发现 → 索引源**，添加：
 
 ```
-https://cdn.jsdelivr.net/gh/YOUR_GITHUB_USER/dsh-delete-chat@main/market/index.json
+https://cdn.jsdelivr.net/gh/abangbang/dsh-delete-chat@main/market/index.json
 ```
 
 （索引里的图标是相对路径，jsDelivr 会把整棵仓库当静态站，所以能解析。）
@@ -52,7 +52,7 @@ https://cdn.jsdelivr.net/gh/YOUR_GITHUB_USER/dsh-delete-chat@main/market/index.j
 ### 命令行
 
 ```bash
-dsh plugin --profile <你的profile> add https://github.com/YOUR_GITHUB_USER/dsh-delete-chat/archive/refs/heads/main.tar.gz
+dsh plugin --profile <你的profile> add https://github.com/abangbang/dsh-delete-chat/archive/refs/heads/main.tar.gz
 ```
 
 官方桌面端的 profile 归应用自己的插件管理器所有，请用应用内的 **设置 → 插件** 安装。
@@ -74,7 +74,7 @@ node scripts/install.mjs --uninstall      # 卸载并删掉包副本
 ### 手动挂载
 
 ```bash
-git clone https://github.com/YOUR_GITHUB_USER/dsh-delete-chat.git \
+git clone https://github.com/abangbang/dsh-delete-chat.git \
   ~/.dsh/profiles/desktop/node_modules/dsh-delete-chat
 ```
 

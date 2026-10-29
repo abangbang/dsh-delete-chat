@@ -6,7 +6,7 @@
 
 ## 0. 先换掉占位符
 
-仓库里所有 `YOUR_GITHUB_USER` / `YOUR_NAME` 由一条命令统一替换：
+仓库里所有 `abangbang` / `abangbang` 由一条命令统一替换：
 
 ```bash
 npm run rename-owner --  <你的GitHub用户名> "<显示名>"

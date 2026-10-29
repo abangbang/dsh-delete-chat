@@ -3,7 +3,7 @@
  *
  *   node scripts/rename-owner.mjs <github-user> [display-name]
  *
- * 替换 `YOUR_GITHUB_USER`、`YOUR_NAME`，并顺手把 `repository` / `homepage` /
+ * 替换 `abangbang`、`abangbang`，并顺手把 `repository` / `homepage` /
  * `bugs` / `dsh.install` 里的地址一起改掉。跑完打印改了哪些文件。
  */
 
@@ -45,10 +45,10 @@ async function walk(dir) {
 const touched = []
 for (const path of await walk(root)) {
   const before = await readFile(path, 'utf8')
-  if (!before.includes('YOUR_GITHUB_USER') && !before.includes('YOUR_NAME')) continue
+  if (!before.includes('abangbang') && !before.includes('abangbang')) continue
   const after = before
-    .replaceAll('YOUR_GITHUB_USER', user)
-    .replaceAll('YOUR_NAME', displayName)
+    .replaceAll('abangbang', user)
+    .replaceAll('abangbang', displayName)
   await writeFile(path, after, 'utf8')
   touched.push(relative(root, path).split(sep).join('/'))
 }

@@ -45,10 +45,10 @@
         "zh": "删除会话先进回收站：会话行「⋯」软删除，侧栏底部的回收站面板里筛选、恢复或永久删除，逐项报告结果。"
       },
       "icon": "../icon.svg",
-      "author": "YOUR_GITHUB_USER",
-      "homepage": "https://github.com/YOUR_GITHUB_USER/dsh-delete-chat#readme",
+      "author": "abangbang",
+      "homepage": "https://github.com/abangbang/dsh-delete-chat#readme",
       "repository": {
-        "url": "https://github.com/YOUR_GITHUB_USER/dsh-delete-chat.git"
+        "url": "https://github.com/abangbang/dsh-delete-chat.git"
       },
       "metadata": {
         "category": "sessions",
@@ -72,7 +72,7 @@
           "publishTimestamp": 1793259329,
           "source": {
             "type": "git",
-            "url": "https://github.com/YOUR_GITHUB_USER/dsh-delete-chat.git",
+            "url": "https://github.com/abangbang/dsh-delete-chat.git",
             "commit": "535f42da642b11200c686c455ae58a818bdccefe"
           },
           "engines": {
