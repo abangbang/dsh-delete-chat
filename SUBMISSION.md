@@ -70,6 +70,12 @@ https://cdn.jsdelivr.net/gh/<user>/dsh-delete-chat@main/market/index.json
 公共市场，去那边提 PR，**不要往 dsh-market 仓库提插件条目**。列表数据只有 `data/plugins/*.yml`，
 两个 README 由脚本生成，**不要手工编辑 README**。
 
+> **已提交（2026-10-29）**：PR
+> [awesome-dsh-plugin#10322](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/10322)，
+> 只加 `data/plugins/abangbang__dsh-delete-chat.yml` 一个文件（+10/−0，没碰 README）。
+> 仓库 topic `dsh-plugin` 与仓库描述已设置。剩下的只有两件事：等 gate 的仓库年龄检查自己变绿
+> （仓库建于 2026-10-29 15:44，满 24 小时后自动通过，不需要推任何东西），以及维护者的人工评审。
+
 规则全文见 [contributing.md](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/blob/main/contributing.md)。
 一个 PR 只加一个文件，文件名叫 `data/plugins/<owner>__<repo>.yml`：
 
@@ -79,8 +85,8 @@ name: <user>/dsh-delete-chat
 category: session
 icon: https://raw.githubusercontent.com/<user>/dsh-delete-chat/main/assets/icon-180.png
 description:
-  en: 'Real session deletion for DSH: "Delete chat" in a session row moves its directory into ~/.dsh/session-trash, a Trash page in the sidebar lists, filters, restores and permanently deletes from there, and a CLI exposes the same verbs without the GUI.'
-  zh: '给 DSH 补上真正的会话删除：「⋯」菜单里的 Delete chat 把目录移进 ~/.dsh/session-trash，侧栏回收站页面负责筛选、恢复与永久删除，另有 CLI 做同样的事。'
+  en: 'Real session deletion for DSH: "Delete chat" in a session row moves its directory into ~/.dsh/session-trash, a Trash page in the sidebar lists, filters, restores and permanently deletes from there, and a CLI offers the same verbs without the GUI.'
+  zh: '给 DSH 补上真正的会话删除：「⋯」里的 Delete chat 把会话目录移进 ~/.dsh/session-trash，侧栏回收站页面负责筛选、恢复与永久删除，另有 CLI 用同样的动词、不用开 GUI。'
 # 可选：发了 GitHub Release 之后再填，资产名必须不带版本号
 # tarball: https://github.com/<user>/dsh-delete-chat/releases/latest/download/dsh-delete-chat.tgz
 ```
@@ -91,7 +97,7 @@ description:
 |---|---|
 | `package.json` 声明 `dsh.bundle`（不只是 `dsh.client`） | ✅ `bundle.patch` → `cordis.patch.yml` |
 | 仓库创建满 1 天 | ⏳ 由 CI 自动复检，**不要重开 PR**，时间到会自己变绿 |
-| 仓库加了 `dsh-plugin` topic | ⬜ 需在仓库页 About 里手动加 |
+| 仓库加了 `dsh-plugin` topic | ✅ 2026-10-29 已加（连同仓库描述） |
 | 描述属实、不带营销词、以句号结尾 | ✅ 逐条对过代码 |
 | 分类贴合功能 | ✅ `session`（会话管理） |
 | 可选：`screenshots.json` 声明截图 | ✅ 仓库根目录，指向 `docs/screenshots/*.png` |
