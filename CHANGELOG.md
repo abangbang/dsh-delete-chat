@@ -3,6 +3,18 @@
 本文件记录所有值得注意的改动。格式参照 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [SemVer](https://semver.org/lang/zh-CN/)。
 
+## [0.2.1] — 2026-10-29
+
+### Changed
+
+- 侧栏底部那一行改成**紧凑布局**：宽侧栏时是「图标 + 文字 + 角标」的一行，收起成 56px 轨道时退化成
+  36×36 的图标格 + 右上角红点数字，跟同排的其它 action 尺寸一致。
+- 注册时补上 `label` 节流函数（`registerOptions.label` 的官方形态），让宿主自己投影文字时也能跟随语言。
+
+### Added
+
+- **加载自检**：客户端 bundle 启动时在控制台打印 `[dsh-delete-chat] <build> loaded`，每个席位挂载成功/失败
+  各打一行；某个席位挂不上只影响它自己，并留下 `console.error` 痕迹，不再静默消失。
 ## [0.2.0] — 2026-10-29
 
 ### Changed
