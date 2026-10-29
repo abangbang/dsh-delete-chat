@@ -47,6 +47,14 @@ const source = useNpm
 
 const index = {
   format: 1,
+  title: {
+    en: 'DSH Session Tools',
+    zh: 'DSH 会话工具',
+  },
+  description: {
+    en: 'Session management add-ons for DeepSeek Harness.',
+    zh: 'DeepSeek Harness 的会话管理增强。',
+  },
   metadata: {
     categories: {
       sessions: { title: { en: 'Sessions', zh: '会话管理' } },

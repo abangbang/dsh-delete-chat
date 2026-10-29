@@ -1,0 +1,85 @@
+{
+  "format": 1,
+  "title": {
+    "en": "DSH Session Tools",
+    "zh": "DSH 会话工具"
+  },
+  "description": {
+    "en": "Session management add-ons for DeepSeek Harness.",
+    "zh": "DeepSeek Harness 的会话管理增强。"
+  },
+  "metadata": {
+    "categories": {
+      "sessions": {
+        "title": {
+          "en": "Sessions",
+          "zh": "会话管理"
+        }
+      },
+      "tools": {
+        "title": {
+          "en": "Tools",
+          "zh": "工具"
+        }
+      }
+    },
+    "labels": {
+      "destructive": {
+        "title": {
+          "en": "Destructive",
+          "zh": "破坏性操作"
+        }
+      }
+    },
+    "sortKeys": {}
+  },
+  "plugins": [
+    {
+      "name": "dsh-session-delete",
+      "title": {
+        "en": "Session Delete",
+        "zh": "会话删除"
+      },
+      "description": {
+        "en": "Real session deletion: the row menu gains a destructive action that archives, removes the session directory, prunes workspace accounting and clears the projection cache.",
+        "zh": "真正删除会话：会话行「⋯」菜单里多一条危险操作，归档 + 删目录 + 摘工作区记账 + 清投影缓存，并逐项报告结果。"
+      },
+      "icon": "../icon.svg",
+      "author": "YOUR_GITHUB_USER",
+      "homepage": "https://github.com/YOUR_GITHUB_USER/dsh-session-delete#readme",
+      "repository": {
+        "url": "https://github.com/YOUR_GITHUB_USER/dsh-session-delete.git"
+      },
+      "metadata": {
+        "category": "sessions",
+        "keywords": [
+          "会话",
+          "删除",
+          "归档",
+          "清理",
+          "session",
+          "delete",
+          "archive"
+        ],
+        "labels": [
+          "destructive"
+        ],
+        "sortKeys": {}
+      },
+      "versions": [
+        {
+          "version": "0.1.0",
+          "publishTimestamp": 1793249112,
+          "source": {
+            "type": "git",
+            "url": "https://github.com/YOUR_GITHUB_USER/dsh-session-delete.git",
+            "commit": "58da624df43020984092c19ee34fbd8d1c66e4d3"
+          },
+          "engines": {
+            "dsh": ">=0.2.0-0"
+          }
+        }
+      ]
+    }
+  ]
+}

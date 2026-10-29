@@ -205,6 +205,9 @@ const document = JSON.parse(await readFile(indexPath, 'utf8'))
 
 if (document.format !== 1) fail('$.format', 'must be 1')
 
+localizedText(document.title, '$.title')
+if (document.description !== undefined) localizedText(document.description, '$.description')
+
 const metadata = document.metadata === undefined ? {} : objectAt(document.metadata, '$.metadata') ?? {}
 const index = { categories: {}, labels: {}, sortKeys: {} }
 for (const group of ['categories', 'labels', 'sortKeys']) {
