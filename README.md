@@ -130,6 +130,32 @@ removed, and the report says so.
 `[0-9A-Za-z._-]`: it is validated before it ever reaches `join()`/`rm()`, so `../`, drive letters
 and separators cannot become path segments.
 
+## When it fails
+
+Nothing is atomic here — a delete touches a live host, a directory tree and a JSON store. The
+report says which part refused, and every failure has a way forward.
+
+| What failed | What the dialog shows | What is actually true |
+|---|---|---|
+| `POST /delete-chat/api/delete` itself | phase `error`, red box, session untouched | Nothing was written |
+| One directory would not go (file lock, permissions, OneDrive sync) | status **partially deleted**, path + reason listed | The other paths are gone; the row is already archived |
+| `workspace.json` rewrite refused | status **partially deleted**, store path listed, `.bak-<stamp>` kept | Files are gone, the stale reference is pruned on the next boot |
+| A projection-cache entry refuses | status **partially deleted**, that one cache path listed | The session log is gone — only a disposable cache file remains |
+
+Recovery, in the order to try it:
+
+1. **Retry** — the dialog keeps a retry button whenever the report lists failures. The operation is
+   idempotent: a second call re-archives (no-op), re-removes what is left, and re-prunes.
+2. **Copy failure details** — the machine-readable report, ready for a bug report.
+3. **CLI fallback** — the same footer shows the exact command. Quit DSH first: the lock that
+   usually blocks a directory is the live host's own write handle.
+   ```bash
+   dsh-delete-chat --yes session-<uuid>
+   ```
+4. **Roll back the store** — every rewrite leaves `workspace.json.bak-<stamp>` next to it.
+5. **Bring the conversation back** — if the files survived (a directory-failure-only run), the
+   archive is reversible: unarchive the session and it returns to its list.
+
 ## Known limitations
 
 - **No cascade**: subagent and forked child sessions survive, and their `parent_session` dangles.

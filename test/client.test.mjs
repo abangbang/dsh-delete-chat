@@ -138,6 +138,41 @@ function mountInstance(options = {}) {
   }
 }
 
+/**
+ * Expand function components into their rendered output. The fake renderer records
+ * `{ type, args }` without invoking components, so a report rendered by `ReportView`
+ * would otherwise stay an opaque function reference.
+ * @param node - fake element, array or scalar.
+ * @returns the same tree with components replaced by what they return.
+ */
+function flatten(node) {
+  if (node === null || node === undefined || typeof node !== 'object') return node
+  if (Array.isArray(node)) return node.map(flatten)
+  if (node.type !== 'element') return node
+  const [type, props, ...children] = node.args
+  if (typeof type === 'function') return flatten(type({ ...props, children }))
+  return { type, props, children: children.map(flatten) }
+}
+
+/**
+ * Find the first button whose children contain exactly `label`.
+ * @param node - flattened tree.
+ * @param label - the button's visible text.
+ * @returns the button node, or undefined.
+ */
+function findButton(node, label) {
+  if (node === null || node === undefined || typeof node !== 'object') return undefined
+  if (node.type === 'button' && (node.children ?? []).some((child) => child === label)) return node
+  for (const child of node.children ?? []) {
+    const found = findButton(child, label)
+    if (found !== undefined) return found
+  }
+  return undefined
+}
+
+/** Let queued microtasks and the zero-delay timer settle. */
+const tick = () => new Promise((resolve) => setTimeout(resolve, 0))
+
 before(async () => {
   globalThis.window = {
     __ModuleLoader__: {
@@ -333,21 +368,6 @@ describe('i18n', () => {
 
 /** The status row must state what actually happened, not a blanket success. */
 describe('report status', () => {
-  /**
-   * Expand function components into their rendered output. The fake renderer
-   * records `{ type, args }` without invoking components, so a report rendered by
-   * `ReportView` would otherwise stay an opaque function reference.
-   * @param node - fake element, array or scalar.
-   * @returns the same tree with components replaced by what they return.
-   */
-  function flatten(node) {
-    if (node === null || node === undefined || typeof node !== 'object') return node
-    if (Array.isArray(node)) return node.map(flatten)
-    if (node.type !== 'element') return node
-    const [type, props, ...children] = node.args
-    if (typeof type === 'function') return flatten(type({ ...props, children }))
-    return { type, props, children: children.map(flatten) }
-  }
 
   /**
    * Drive one full delete flow against a stubbed host, then serialise the outcome.
@@ -446,5 +466,128 @@ describe('report status', () => {
     const rendered = await renderOutcome(CASES[1].report, 'zh')
     assert.ok(rendered.includes('/tmp/b'), 'the failing path must be named')
     assert.ok(rendered.includes('EPERM'), 'the failure reason must be named')
+  })
+})
+
+/** A failed run must be recoverable from the dialog itself. */
+describe('failure recovery', () => {
+  const FAILED = {
+    deleted: false,
+    archived: 'failed: busy',
+    removedDirectories: ['/tmp/a'],
+    freedBytes: 4096,
+    workspaceAccounting: null,
+    projectionCacheRemoved: 0,
+    failures: [{ path: '/tmp/b', error: 'EPERM' }],
+  }
+  const CLEAN = {
+    deleted: true,
+    archived: 'ok',
+    removedDirectories: ['/tmp/a', '/tmp/b'],
+    freedBytes: 8192,
+    workspaceAccounting: { workspaces: 1, archived: 0, pinned: 0 },
+    projectionCacheRemoved: 1,
+    failures: [],
+  }
+
+  /**
+   * Open one flow whose host answers each delete call with the next report.
+   * @param reports - successive delete reports.
+   * @param locale - active language id.
+   * @returns the dialog driver: `click`, `render`, `deletes`, `restore`.
+   */
+  async function openFlow(reports, locale = 'zh') {
+    const originalFetch = globalThis.fetch
+    const deletes = []
+    globalThis.fetch = async (url, init) => {
+      const target = String(url)
+      const body = JSON.parse(init?.body ?? '{}')
+      let value
+      if (target.endsWith('/delete')) {
+        value = reports[Math.min(deletes.length, reports.length - 1)]
+        deletes.push(body)
+      } else {
+        value = reports[0]
+      }
+      return { ok: true, status: 200, json: async () => ({ ok: true, value }) }
+    }
+    const { menu, dialog } = mountInstance({ locale })
+    const row = menu({ sessionId: 'session-9', displayTitle: 'demo' })
+    row.args[1].onSelect()
+    await tick()
+
+    /** Click the button carrying `label` and let the flow settle. */
+    const click = async (label) => {
+      const button = findButton(flatten(dialog()), label)
+      if (button === undefined) throw new Error(`no button labelled "${label}"`)
+      button.props.onClick()
+      await tick()
+    }
+
+    return {
+      click,
+      render: () => JSON.stringify(flatten(dialog())),
+      deletes,
+      restore: () => {
+        globalThis.fetch = originalFetch
+      },
+    }
+  }
+
+  it('offers retry, a copy action and a CLI fallback after a partial run', async () => {
+    const flow = await openFlow([FAILED])
+    try {
+      await flow.click('永久删除')
+      const rendered = flow.render()
+      assert.ok(rendered.includes('部分完成'), 'the status must say partial')
+      assert.ok(rendered.includes('重试'), 'a retry button must be offered')
+      assert.ok(rendered.includes('复制失败详情'), 'the report must be copyable')
+      assert.ok(
+        rendered.includes('dsh-delete-chat --yes session-9'),
+        'the hint must name the exact CLI command for this session',
+      )
+    } finally {
+      flow.restore()
+    }
+  })
+
+  it('retries against the host and lands on the clean report', async () => {
+    const flow = await openFlow([FAILED, CLEAN])
+    try {
+      await flow.click('永久删除')
+      await flow.click('重试')
+      const rendered = flow.render()
+      assert.equal(flow.deletes.length, 2, 'the retry must hit the host again')
+      assert.ok(rendered.includes('已删除'), 'the second run reports success')
+      assert.ok(!rendered.includes('重试'), 'no retry is offered once nothing failed')
+    } finally {
+      flow.restore()
+    }
+  })
+
+  it('keeps the failure list visible on the retry, so the second attempt is not blind', async () => {
+    const flow = await openFlow([FAILED, FAILED])
+    try {
+      await flow.click('永久删除')
+      await flow.click('重试')
+      const rendered = flow.render()
+      assert.ok(rendered.includes('/tmp/b'), 'the failing path stays listed')
+      assert.ok(rendered.includes('EPERM'), 'the reason stays listed')
+    } finally {
+      flow.restore()
+    }
+  })
+
+  it('hides the recovery affordances when nothing failed', async () => {
+    const flow = await openFlow([CLEAN])
+    try {
+      await flow.click('永久删除')
+      const rendered = flow.render()
+      assert.ok(!rendered.includes('重试'))
+      assert.ok(!rendered.includes('复制失败详情'))
+      assert.ok(rendered.includes('已删除'))
+    } finally {
+      flow.restore()
+    }
   })
 })

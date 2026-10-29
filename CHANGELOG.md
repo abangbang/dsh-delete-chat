@@ -20,7 +20,8 @@
   → 原子改写 `workspace.json`（留 `.bak-<时间戳>`）→ 清 `session_projcache`。
 - 命令行兜底 `dsh-delete-chat` / `bin/delete-chat.mjs`：`--list` / `--preview` / `--yes` / `--home`。
 - 结果报告的**状态行如实反映结果**：完整删除 / 部分完成 / 未找到可删除内容，不再一律写「已删除」。
-- 40 项测试：宿主逻辑、HTTP 信封与围栏、客户端 bundle 契约、菜单外观、语言切换、结果报告。
+- 失败可恢复：报告里出现失败时，弹窗多出**重试**、**复制失败详情**，并给出该会话的 CLI 兜底命令；投影缓存删不掉也会进失败列表（不再被静默吞掉，也不再谎报已清理）。
+- 44 项测试：宿主逻辑、HTTP 信封与围栏、客户端 bundle 契约、菜单外观、语言切换、结果报告、失败恢复。
 - `scripts/market-index.mjs` 生成 format 1 市场索引；`scripts/pack.mjs` 产出可分发的 `.tgz`。
 
 ### Known limitations
