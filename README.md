@@ -33,7 +33,7 @@ grows — this plugin is the scissors.
 | | |
 |---|---|
 | **Soft delete** | Session row "⋯" → Delete chat moves the directory into `~/.dsh/session-trash` — a rename on the same volume, never a copy |
-| **Trash as a global panel** | The sidebar's panel list gets a Trash row (a red dot while it holds anything); selecting it opens a full page with filter, multi-select, restore, permanent delete and empty |
+| **Trash as a global panel** | The sidebar's panel list gets a Trash row whose icon carries the number of conversations inside; selecting it opens a full page with filter, multi-select, restore, permanent delete and empty |
 | **Confirmation modals** | Restore, delete and empty each open a modal that names the count and the bytes before anything touches the disk |
 | **Row details** | Size, trash path, last activity and deletion time on every row |
 | **Localized** | Wording follows the host language (zh / en) live — rows, dialog and panel all re-render on a switch |
@@ -115,7 +115,7 @@ Trash         ~/.dsh/session-trash/--proj--/session-…
 Nothing is lost: this is a rename, and it stays reversible until you say otherwise.
 
 **Trash** — the sidebar's panel list (the nav above the workspaces, `aria-label="全局面板"`) gains a
-**Trash** row; a red dot means it holds something. Selecting it opens the panel as a page — the same
+**Trash** row, whose icon carries the count (hidden at zero, `99+` above that). Selecting it opens the panel as a page — the same
 kind of page the Plugins manager uses — listing every trashed conversation with its size, project and
 deletion time:
 

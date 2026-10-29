@@ -378,24 +378,38 @@ describe('session menu', () => {
 })
 
 describe('panel list entry', () => {
-  it('renders the glyph and a dot when the trash holds something', async () => {
+  it('renders the count on the glyph when the trash holds something', async () => {
     const driver = mount()
     try {
       await tick()
-      const dot = find(glyphTree(driver), (element) => element.props?.style?.background === '#c93b3b')
-      assert.ok(dot !== undefined, 'the dot marks a non-empty trash')
+      const tree = glyphTree(driver)
+      const badge = find(tree, (element) => element.props?.style?.background === '#c93b3b')
+      assert.ok(badge !== undefined, 'a non-empty trash carries a badge')
+      assert.equal(textOf(badge), '2', 'the badge shows how many conversations the trash holds')
       assert.ok(driver.calls.some((call) => call.target.endsWith('/trashList')), 'the count is primed at mount')
     } finally {
       driver.restore()
     }
   })
 
-  it('drops the dot when the trash is empty', async () => {
+  it('renders no badge when the trash is empty', async () => {
     const driver = mount({ routes: { ...ROUTES, trashList: { root: '/t', rows: [] } } })
     try {
       await tick()
-      const dot = find(glyphTree(driver), (element) => element.props?.style?.background === '#c93b3b')
-      assert.equal(dot, undefined)
+      const badge = find(glyphTree(driver), (element) => element.props?.style?.background === '#c93b3b')
+      assert.equal(badge, undefined)
+    } finally {
+      driver.restore()
+    }
+  })
+
+  it('caps a huge count instead of widening the row', async () => {
+    const rows = Array.from({ length: 120 }, (_, index) => ({ sessionId: `s-${index}`, displayTitle: `t-${index}`, bytes: 1 }))
+    const driver = mount({ routes: { ...ROUTES, trashList: { root: '/t', rows } } })
+    try {
+      await tick()
+      const badge = find(glyphTree(driver), (element) => element.props?.style?.background === '#c93b3b')
+      assert.equal(textOf(badge), '99+')
     } finally {
       driver.restore()
     }

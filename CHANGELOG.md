@@ -3,6 +3,13 @@
 本文件记录所有值得注意的改动。格式参照 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [SemVer](https://semver.org/lang/zh-CN/)。
 
+## [0.4.1] — 2026-10-29
+
+### Changed
+
+- 侧栏「全局面板」里的回收站图标：**红点换成数量角标**——显示回收站里的会话数，0 时不显示，
+  超过 99 显示 `99+`。角标跟随 `trashCountStore`，删除/恢复/清空后即时更新。
+
 ## [0.4.0] — 2026-10-29
 
 ### Added
