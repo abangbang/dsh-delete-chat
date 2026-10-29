@@ -3,6 +3,16 @@
 本文件记录所有值得注意的改动。格式参照 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [SemVer](https://semver.org/lang/zh-CN/)。
 
+## [0.3.0] — 2026-10-29
+
+### Changed
+
+- **回收站从弹层改成全局面板**：注册 `main`（keyed，key = `delete-chat:trash`）承载页面本体，
+  注册 `sidebar.panellist`（同一个 id）提供侧栏「全局面板」列表里的图标行。点这一行等于
+  `ctx.layout.selectPanel('delete-chat:trash')`，中间栏整页显示回收站——跟「插件」管理页同一个层级。
+- 面板里不再有「关闭」按钮（页面由侧栏切换离开），改为显示回收站根路径；有内容时列表图标带红点。
+- 侧栏底部（`sidebar.footer.action`）那一行移除。
+
 ## [0.2.1] — 2026-10-29
 
 ### Changed
