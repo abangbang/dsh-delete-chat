@@ -42,8 +42,23 @@ DSH 自己的两个包就把这个缺口写在了文档里：
 | **命令行** | `--trash` / `--trash-list` / `--restore` / `--purge --yes` / `--empty --yes`，界面没挂上也能用 |
 | **自托管索引** | 自带 format 1 市场索引，加进 DSH 的「索引源」就是你的私有市场 |
 
-## 安装
+## 界面
 
+<p align="center">
+  <img src="docs/screenshots/trash-page.png" alt="回收站整页" width="100%">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/row-menu.png" alt="会话菜单里的删除会话" width="24%">
+  &nbsp;&nbsp;
+  <img src="docs/screenshots/delete-dialog.png" alt="删除确认" width="72%">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/restore-confirm.png" alt="恢复也要二次确认，按钮是琥珀色" width="72%">
+</p>
+
+## 安装
 在 DSH 里直接说：
 
 > 帮我安装 https://github.com/abangbang/dsh-delete-chat

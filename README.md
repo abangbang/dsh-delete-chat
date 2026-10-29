@@ -46,8 +46,23 @@ This plugin is the scissors.
 | **CLI** | `--trash` / `--trash-list` / `--restore` / `--purge --yes` / `--empty --yes`, usable without the GUI |
 | **Self-hosted index** | Ships a format-1 market index — add it as an index source for a private market |
 
-## Install
+## Screenshots
 
+<p align="center">
+  <img src="docs/screenshots/trash-page.png" alt="The trash page" width="100%">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/row-menu.png" alt="Delete chat in the session menu" width="24%">
+  &nbsp;&nbsp;
+  <img src="docs/screenshots/delete-dialog.png" alt="The delete confirmation" width="72%">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/restore-confirm.png" alt="Restoring asks first, in amber" width="72%">
+</p>
+
+## Install
 In DSH, just ask:
 
 > Install https://github.com/abangbang/dsh-delete-chat

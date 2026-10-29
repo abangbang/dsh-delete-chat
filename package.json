@@ -23,6 +23,7 @@
     "bin/delete-chat.mjs",
     "cordis.patch.yml",
     "icon.svg",
+    "docs",
     "README.md",
     "README.zh-CN.md",
     "CHANGELOG.md",
