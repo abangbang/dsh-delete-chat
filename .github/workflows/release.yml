@@ -30,9 +30,18 @@ jobs:
           node scripts/pack.mjs | tee pack.log
           echo "tarball=$(ls release/*.tgz | head -n1)" >> "$GITHUB_OUTPUT"
 
+      # A version-free copy, so `releases/latest/download/dsh-delete-chat.tgz`
+      # stays valid across releases. `latest/download/` resolves `latest` at
+      # request time but takes the filename literally, so a versioned asset name
+      # works on release day and 404s on the next one.
+      - name: Alias the tarball under a version-free name
+        run: cp ${{ steps.pack.outputs.tarball }} release/dsh-delete-chat.tgz
+
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ steps.pack.outputs.tarball }}
+          files: |
+            ${{ steps.pack.outputs.tarball }}
+            release/dsh-delete-chat.tgz
           body_path: CHANGELOG.md
           generate_release_notes: true

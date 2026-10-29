@@ -3,6 +3,22 @@
 本文件记录所有值得注意的改动。格式参照 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [SemVer](https://semver.org/lang/zh-CN/)。
 
+## [Unreleased]
+
+### Added
+
+- `screenshots.json`：按市场（如 dsh-market 详情页）的约定在仓库根声明 1–8 张截图，指向
+  `docs/screenshots/*.png`。之后换图只推本仓库即可，不必去精选列表提 PR。
+- `assets/icon-180.png`：180×180 的位图图标。市场卡片只接受 GitHub 托管的位图，
+  `icon.svg` 不在接受范围内；`dsh.install` 与自托管索引仍然用 SVG。
+- `.github/workflows/release.yml` 额外产出不带版本号的 `dsh-delete-chat.tgz`，好让
+  `releases/latest/download/dsh-delete-chat.tgz` 这类链接不会在下次发版时 404。
+
+### Changed
+
+- `SUBMISSION.md` 的通道 B 重写：社区列表的投稿数据现在是 `data/plugins/<owner>__<repo>.yml`
+  一个文件，两个 README 由脚本生成、不再手工编辑；补上 CI 会查的形式项与几个已知的坑。
+
 ## [0.4.6] — 2026-10-29
 
 ### Changed
