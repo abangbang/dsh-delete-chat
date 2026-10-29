@@ -1,6 +1,6 @@
 {
   "name": "dsh-delete-chat",
-  "version": "0.4.3",
+  "version": "0.4.4",
   "description": "真正删除 DSH 会话：归档 + 删目录 + 清记账。会话行「⋯」菜单里的危险操作，带确认与逐项结果。Real session deletion for DeepSeek Harness.",
   "type": "module",
   "main": "lib/index.js",

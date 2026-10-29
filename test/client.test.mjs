@@ -309,6 +309,16 @@ function glyphTree(driver) {
   return flatten(driver.glyph({ size: 16, active: false }))
 }
 
+/**
+ * The count element: the only glyph child that is a bare number.
+ * @param tree - flattened glyph tree.
+ * @returns the node, or undefined.
+ */
+function countNode(tree) {
+  return find(tree, (element) => typeof element.props?.style?.color === 'string'
+    && /^\d+\+?$/.test(textOf(element).trim()))
+}
+
 before(async () => {
   globalThis.window = {
     __ModuleLoader__: {
@@ -378,11 +388,6 @@ describe('session menu', () => {
 })
 
 describe('panel list entry', () => {
-  /** The count element: the only child of the glyph that is not an icon wrapper. */
-  const countNode = (tree) => find(tree, (element) => typeof element.props?.style?.color === 'string'
-    && element.props.style.color.startsWith('rgb(255')
-    && /^\d+\+?$/.test(textOf(element).trim()))
-
   it('draws icon, name and count in that order', async () => {
     const driver = mount()
     try {
@@ -392,6 +397,7 @@ describe('panel list entry', () => {
       assert.equal(text, '回收站2', 'name then count, left to right')
       assert.ok(text.indexOf('回收站') < text.indexOf('2'), 'the count follows the name')
       assert.equal(textOf(countNode(tree)), '2', 'the count says how many conversations the trash holds')
+      assert.equal(countNode(tree).props.style.color, 'rgb(226, 179, 68)', 'amber, not danger red')
       assert.ok(driver.calls.some((call) => call.target.endsWith('/trashList')), 'the count is primed at mount')
     } finally {
       driver.restore()
@@ -473,6 +479,35 @@ describe('trash panel page', () => {
     await tick()
     return driver
   }
+
+  it('moves the sidebar count right after a delete', async () => {
+    let reads = 0
+    const driver = mount({
+      routes: {
+        ...ROUTES,
+        trashList: () => {
+          reads += 1
+          // Empty on the priming read, one conversation on the refresh after the
+          // delete: exactly what the sidebar has to reflect without a reload.
+          return { root: '/t', rows: reads === 1 ? [] : [{ sessionId: 'session-a', displayTitle: 'alpha', bytes: 10 }] }
+        },
+      },
+    })
+    try {
+      await tick()
+      assert.equal(countNode(glyphTree(driver)), undefined, 'an empty trash shows no count')
+
+      menuRow(driver).props.onSelect()
+      await tick()
+      button(flatten(driver.overrides()), '移入回收站').props.onClick()
+      await tick()
+
+      assert.equal(reads, 2, 'the delete asks the host for the new count')
+      assert.equal(textOf(countNode(glyphTree(driver))), '1', 'and the sidebar shows it immediately')
+    } finally {
+      driver.restore()
+    }
+  })
 
   it('lists what the trash holds', async () => {
     const driver = await openPage()
@@ -578,6 +613,10 @@ describe('trash panel page', () => {
       await tick()
       assert.ok(dump(driver.render()).includes('恢复 1 项？'), 'restore asks first too')
 
+      assert.ok(
+        dump(driver.render()).includes('226, 179, 68'),
+        'the restore confirmation is amber, not blue',
+      )
       button(driver.render(), '确认恢复').props.onClick()
       await tick()
 

@@ -115,7 +115,7 @@ Trash         ~/.dsh/session-trash/--proj--/session-…
 Nothing is lost: this is a rename, and it stays reversible until you say otherwise.
 
 **Trash** — the sidebar's panel list (the nav above the workspaces, `aria-label="全局面板"`) gains a
-**Trash** row, whose icon is followed by the count (hidden at zero, `99+` above that). Selecting it opens the panel as a page — the same
+**Trash** row, drawn as icon · name · count — the count in amber (`rgb(226,179,68)`, not danger red), hidden at zero, `99+` above that, and it moves the moment a delete lands. Selecting it opens the panel as a page — the same
 kind of page the Plugins manager uses — listing every trashed conversation with its size, project and
 deletion time:
 
@@ -124,7 +124,7 @@ deletion time:
 - **Restore** moves the directories back, re-accounts them and unarchives them;
 - **Restore**, **Delete permanently** and **Empty trash** each open a confirmation modal that names
   the count, the bytes it will free and whether the action is reversible; only its confirm button
-  touches the disk.
+  touches the disk. The restore confirmation is amber; only the deleting ones are red.
 
 Every row shows its own details:
 
